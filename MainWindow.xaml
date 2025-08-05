@@ -4,9 +4,15 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:dockus"
+        WindowStyle="None"
+        Background="Transparent"
+        AllowsTransparency="True"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
-
-    </Grid>
+        
+        Title="MainWindow" Height="150" Width="800">
+    <Border Background="Black" BorderBrush="Gray"  BorderThickness="1" CornerRadius="50" >
+        <Grid >
+                
+        </Grid>
+    </Border>
 </Window>
