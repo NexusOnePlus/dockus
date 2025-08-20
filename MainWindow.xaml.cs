@@ -1,5 +1,4 @@
-﻿using dockus.Settings;
-using GongSolutions.Wpf.DragDrop;
+﻿using GongSolutions.Wpf.DragDrop;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -32,24 +31,24 @@ namespace dockus
     public class PinnedApp
     {
         public PinnedAppType Type { get; set; }
-        public string Identifier { get; set; }
+        public required string Identifier { get; set; }
     }
 
     public class WindowItem : INotifyPropertyChanged
     {
         public IntPtr Hwnd { get; set; }
-        public string Identifier { get; set; }
+        public string Identifier { get; set; } = string.Empty;
         public PinnedAppType IdentifierType { get; set; }
 
-        private string _title;
+        private string _title = string.Empty;
         public string Title
         {
             get => _title;
             set { _title = value; OnPropertyChanged(); }
         }
 
-        private ImageSource _icon;
-        public ImageSource Icon
+        private ImageSource? _icon;
+        public ImageSource? Icon
         {
             get => _icon;
             set { _icon = value; OnPropertyChanged(); }
@@ -69,8 +68,8 @@ namespace dockus
             set { _isRunning = value; OnPropertyChanged(); }
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
+        public event PropertyChangedEventHandler? PropertyChanged;
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
@@ -81,8 +80,10 @@ namespace dockus
     public partial class MainWindow : Window, IDropTarget
     {
         private const string PinnedAppsFileName = "pinned_apps.json";
+        private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
         private IntPtr m_hWnd = IntPtr.Zero;
-        private DispatcherTimer _updateTimer;
+        private readonly DispatcherTimer _updateTimer;
+        private readonly DispatcherTimer _hideTimer;
 
         public ObservableCollection<WindowItem> PinnedItems { get; set; }
         public ObservableCollection<WindowItem> ActiveUnpinnedItems { get; set; }
@@ -90,103 +91,128 @@ namespace dockus
         #region P/Invoke Definitions
 
         [ComImport, Guid("2e941141-7f97-4756-ba1d-9decde894a3d"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        interface IApplicationActivationManager
+        private interface IApplicationActivationManager
         {
             IntPtr ActivateApplication([In] string appUserModelId, [In] string arguments, [In] int options, [Out] out uint processId);
         }
+
         [ComImport, Guid("45BA127D-10A8-46EA-8AB7-56EA9078943C")]
-        class ApplicationActivationManager : IApplicationActivationManager
+        private class ApplicationActivationManager : IApplicationActivationManager
         {
             [MethodImpl(MethodImplOptions.InternalCall, MethodCodeType = MethodCodeType.Runtime)]
             public extern IntPtr ActivateApplication([In] string appUserModelId, [In] string arguments, [In] int options, [Out] out uint processId);
         }
 
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        [DllImport("user32.dll")]
-        static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-        private const int SW_RESTORE = 9;
-
-        public enum HRESULT : int
+        [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        private interface IPropertyStore
         {
-            S_OK = 0,
-            E_NOINTERFACE = unchecked((int)0x80004002),
-            E_FAIL = unchecked((int)0x80004005),
+            [PreserveSig]
+            int GetValue([In, MarshalAs(UnmanagedType.Struct)] ref PROPERTYKEY key, [Out, MarshalAs(UnmanagedType.Struct)] out PROPVARIANT pv);
         }
 
-        [DllImport("user32.dll")]
-        static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        private static class NativeMethods
+        {
+            [DllImport("user32.dll")]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static extern bool SetForegroundWindow(IntPtr hWnd);
 
-        [DllImport("User32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+            [DllImport("user32.dll")]
+            internal static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+            internal const int SW_RESTORE = 9;
+            internal const int SW_HIDE = 0;
+            internal const int SW_SHOW = 5;
 
-        [DllImport("User32.dll", SetLastError = true)]
-        public static extern int GetWindowTextLength(IntPtr hWnd);
+            [DllImport("user32.dll")]
+            internal static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
-        [DllImport("User32.dll", SetLastError = true)]
-        public static extern bool IsWindowVisible(IntPtr hWnd);
+            [DllImport("User32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+            internal static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
-        [DllImport("User32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern bool EnumDesktopWindows(IntPtr hDesktop, EnumWindowsProc lpEnumFunc, ref GCHandle lParam);
-        public delegate bool EnumWindowsProc(IntPtr hWnd, ref GCHandle lParam);
+            [DllImport("User32.dll", SetLastError = true)]
+            internal static extern int GetWindowTextLength(IntPtr hWnd);
 
-        [DllImport("User32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
-        public const int GW_OWNER = 4;
+            [DllImport("User32.dll", SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static extern bool IsWindowVisible(IntPtr hWnd);
 
-        public static long GetWindowLong(IntPtr hWnd, int nIndex) => IntPtr.Size == 4 ? GetWindowLong32(hWnd, nIndex) : GetWindowLongPtr64(hWnd, nIndex);
+            [DllImport("User32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static extern bool EnumDesktopWindows(IntPtr hDesktop, EnumWindowsProc lpEnumFunc, ref GCHandle lParam);
+            internal delegate bool EnumWindowsProc(IntPtr hWnd, ref GCHandle lParam);
 
-        [DllImport("User32.dll", EntryPoint = "GetWindowLong", CharSet = CharSet.Unicode)]
-        public static extern long GetWindowLong32(IntPtr hWnd, int nIndex);
+            [DllImport("User32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+            internal static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+            internal const int GW_OWNER = 4;
 
-        [DllImport("User32.dll", EntryPoint = "GetWindowLongPtr", CharSet = CharSet.Unicode)]
-        public static extern long GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+            internal static long GetWindowLong(IntPtr hWnd, int nIndex) => IntPtr.Size == 4 ? GetWindowLong32(hWnd, nIndex) : GetWindowLongPtr64(hWnd, nIndex);
 
-        public const int GWL_STYLE = -16;
-        public const int GWL_EXSTYLE = -20;
-        public const int WS_VISIBLE = 0x10000000;
-        public const int WS_CHILDWINDOW = 0x40000000;
-        public const int WS_EX_APPWINDOW = 0x00040000;
-        public const int WS_EX_TOOLWINDOW = 0x00000080;
-        public const int WS_EX_NOACTIVATE = 0x08000000;
+            [DllImport("User32.dll", EntryPoint = "GetWindowLong", CharSet = CharSet.Unicode)]
+            private static extern long GetWindowLong32(IntPtr hWnd, int nIndex);
 
-        [DllImport("Dwmapi.dll", SetLastError = true)]
-        public static extern HRESULT DwmGetWindowAttribute(IntPtr hwnd, int dwAttributeToGet, ref int pvAttributeValue, int cbAttribute);
-        public enum DWMWINDOWATTRIBUTE { DWMWA_CLOAKED = 14 }
+            [DllImport("User32.dll", EntryPoint = "GetWindowLongPtr", CharSet = CharSet.Unicode)]
+            private static extern long GetWindowLongPtr64(IntPtr hWnd, int nIndex);
 
-        [DllImport("User32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+            internal const int GWL_STYLE = -16;
+            internal const int GWL_EXSTYLE = -20;
+            internal const int WS_VISIBLE = 0x10000000;
+            internal const int WS_CHILDWINDOW = 0x40000000;
+            internal const int WS_EX_APPWINDOW = 0x00040000;
+            internal const int WS_EX_TOOLWINDOW = 0x00000080;
+            internal const int WS_EX_NOACTIVATE = 0x08000000;
 
-        private static IntPtr GetClassLongPtr(IntPtr hWnd, int nIndex) => IntPtr.Size == 8 ? GetClassLongPtr64(hWnd, nIndex) : new IntPtr(GetClassLong32(hWnd, nIndex));
+            [DllImport("Dwmapi.dll", SetLastError = true)]
+            internal static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttributeToGet, ref int pvAttributeValue, int cbAttribute);
+            internal enum DWMWINDOWATTRIBUTE { DWMWA_CLOAKED = 14 }
 
-        [DllImport("user32.dll", SetLastError = true, EntryPoint = "GetClassLong", CharSet = CharSet.Unicode)]
-        private static extern uint GetClassLong32(IntPtr hWnd, int nIndex);
+            [DllImport("User32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+            internal static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+            internal const int WM_GETICON = 0x007F;
+            internal const int ICON_BIG = 1;
+            internal const int ICON_SMALL2 = 2;
 
-        [DllImport("user32.dll", SetLastError = true, EntryPoint = "GetClassLongPtr", CharSet = CharSet.Unicode)]
-        private static extern IntPtr GetClassLongPtr64(IntPtr hWnd, int nIndex);
 
-        [DllImport("Shell32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern HRESULT SHGetPropertyStoreForWindow(IntPtr hwnd, ref Guid iid, [Out, MarshalAs(UnmanagedType.Interface)] out IPropertyStore propertyStore);
+            [DllImport("Shell32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+            internal static extern int SHGetPropertyStoreForWindow(IntPtr hwnd, ref Guid iid, [Out, MarshalAs(UnmanagedType.Interface)] out IPropertyStore propertyStore);
 
-        [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        public interface IPropertyStore { HRESULT GetValue([In, MarshalAs(UnmanagedType.Struct)] ref PROPERTYKEY key, [Out, MarshalAs(UnmanagedType.Struct)] out PROPVARIANT pv); }
+            [DllImport("Shell32.dll", CharSet = CharSet.Unicode)]
+            internal static extern uint ExtractIconEx(string lpszFile, int nIconIndex, out IntPtr phiconLarge, out IntPtr phiconSmall, uint nIcons);
 
-        public static PROPERTYKEY PKEY_AppUserModel_ID = new PROPERTYKEY(new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), 5);
-        public struct PROPERTYKEY { public PROPERTYKEY(Guid id, uint pid) { fmtid = id; this.pid = pid; } private Guid fmtid; private uint pid; }
+            [DllImport("User32.dll", SetLastError = true)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            internal static extern bool DestroyIcon(IntPtr hIcon);
+
+            [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+            internal static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+            [DllImport("shell32.dll", SetLastError = true)]
+            internal static extern IntPtr SHAppBarMessage(uint dwMessage, ref APPBARDATA pData);
+            internal const int ABM_SETSTATE = 0x0000000A;
+            internal const int ABS_AUTOHIDE = 0x0000001;
+            internal const int ABS_ALWAYSONTOP = 0x0000002;
+        }
+
+        private static readonly Guid IID_IPropertyStore = new("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99");
+        private static readonly PROPERTYKEY PKEY_AppUserModel_ID = new(new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), 5);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct PROPERTYKEY { public PROPERTYKEY(Guid id, uint pid) { fmtid = id; this.pid = pid; } private Guid fmtid; private uint pid; }
+
         [StructLayout(LayoutKind.Explicit)]
-        public struct PROPVARIANT { [FieldOffset(0)] public ushort varType; [FieldOffset(8)] public IntPtr pwszVal; }
+        private struct PROPVARIANT { [FieldOffset(0)] public ushort varType; [FieldOffset(8)] public IntPtr pwszVal; }
 
-        [DllImport("Shell32.dll", CharSet = CharSet.Unicode)]
-        private static extern uint ExtractIconEx(string lpszFile, int nIconIndex, out IntPtr phiconLarge, out IntPtr phiconSmall, uint nIcons);
+        [StructLayout(LayoutKind.Sequential)]
+        private struct APPBARDATA
+        {
+            public uint cbSize;
+            public IntPtr hWnd;
+            public uint uCallbackMessage;
+            public uint uEdge;
+            public RECT rc;
+            public IntPtr lParam;
+        }
 
-        [DllImport("User32.dll", SetLastError = true)]
-        private static extern bool DestroyIcon(IntPtr hIcon);
-        public const int WM_GETICON = 0x007F;
-        public const int ICON_BIG = 1;
-        public const int ICON_SMALL2 = 2;
-        private static Guid IID_IPropertyStore = new Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99");
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT { public int left, top, right, bottom; }
 
         #endregion
 
@@ -196,9 +222,14 @@ namespace dockus
             PinnedItems = new ObservableCollection<WindowItem>();
             ActiveUnpinnedItems = new ObservableCollection<WindowItem>();
             this.DataContext = this;
-            _hideTimer = new DispatcherTimer();
-            _hideTimer.Interval = TimeSpan.FromMilliseconds(100);
+            _hideTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(100)
+            };
             _hideTimer.Tick += HideTimer_Tick;
+
+            _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            _updateTimer.Tick += UpdateOpenWindows;
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -208,8 +239,6 @@ namespace dockus
 
             LoadPinnedApps();
 
-            _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-            _updateTimer.Tick += UpdateOpenWindows;
             _updateTimer.Start();
             UpdateOpenWindows(null, EventArgs.Empty);
         }
@@ -217,6 +246,7 @@ namespace dockus
         private void Window_Closing(object sender, CancelEventArgs e)
         {
             SavePinnedApps();
+            RestoreTaskbar();
         }
 
         private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -224,17 +254,20 @@ namespace dockus
             this.Left = (SystemParameters.WorkArea.Width - this.ActualWidth) / 2;
         }
 
-        private void UpdateOpenWindows(object sender, EventArgs e)
+        private void UpdateOpenWindows(object? sender, EventArgs e)
         {
             var activeWindows = new List<WindowItem>();
             var handle = GCHandle.Alloc(activeWindows);
             try
             {
-                EnumDesktopWindows(IntPtr.Zero, ListWindows, ref handle);
+                NativeMethods.EnumDesktopWindows(IntPtr.Zero, ListWindows, ref handle);
             }
             finally
             {
-                handle.Free();
+                if (handle.IsAllocated)
+                {
+                    handle.Free();
+                }
             }
 
             foreach (var pinned in PinnedItems)
@@ -257,40 +290,9 @@ namespace dockus
             foreach (var item in toAdd) ActiveUnpinnedItems.Add(item);
         }
 
-        #region Settings
-
-        [DllImport("user32.dll", SetLastError = true)]
-        private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
-
-
-        private const int SW_HIDE = 0;
-        private const int SW_SHOW = 5;
-
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct APPBARDATA
-        {
-            public uint cbSize;
-            public IntPtr hWnd;
-            public uint uCallbackMessage;
-            public uint uEdge;
-            public RECT rc;
-            public IntPtr lParam;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct RECT { public int left, top, right, bottom; }
-
-        private const int ABM_SETSTATE = 0x0000000A;
-        private const int ABS_AUTOHIDE = 0x0000001;
-        private const int ABS_ALWAYSONTOP = 0x0000002;
-
-        [DllImport("shell32.dll", SetLastError = true)]
-        private static extern IntPtr SHAppBarMessage(uint dwMessage, ref APPBARDATA pData);
-
+        #region Settings and Taskbar Hiding
 
         private bool _isBarVisible = true;
-        private DispatcherTimer _hideTimer;
 
         private void ToggleBar_Click(object sender, RoutedEventArgs e)
         {
@@ -298,80 +300,80 @@ namespace dockus
             {
                 _hideTimer.Start();
                 _isBarVisible = false;
-                ((MenuItem)sender).Header = "Mostrar barra";
+                if (sender is MenuItem menuItem)
+                {
+                    menuItem.Header = "Mostrar barra";
+                }
             }
             else
             {
                 _hideTimer.Stop();
-
                 RestoreTaskbar();
-
                 _isBarVisible = true;
-                ((MenuItem)sender).Header = "Ocultar barra";
+                if (sender is MenuItem menuItem)
+                {
+                    menuItem.Header = "Ocultar barra";
+                }
             }
         }
 
-        private void HideTimer_Tick(object sender, EventArgs e)
+        private void HideTimer_Tick(object? sender, EventArgs e)
         {
-            IntPtr taskbarHwnd = FindWindow("Shell_TrayWnd", null);
+            IntPtr taskbarHwnd = NativeMethods.FindWindow("Shell_TrayWnd", null!);
             if (taskbarHwnd != IntPtr.Zero)
             {
-                SetAppBarState(taskbarHwnd, ABS_AUTOHIDE);
-                ShowWindow(taskbarHwnd, SW_HIDE);
+                SetAppBarState(taskbarHwnd, NativeMethods.ABS_AUTOHIDE);
+                NativeMethods.ShowWindow(taskbarHwnd, NativeMethods.SW_HIDE);
             }
 
-            IntPtr secondaryTaskbarHwnd = FindWindow("Secondary_TrayWnd", null);
+            IntPtr secondaryTaskbarHwnd = NativeMethods.FindWindow("Secondary_TrayWnd", null!);
             if (secondaryTaskbarHwnd != IntPtr.Zero)
             {
-                SetAppBarState(secondaryTaskbarHwnd, ABS_AUTOHIDE);
-                ShowWindow(secondaryTaskbarHwnd, SW_HIDE);
+                SetAppBarState(secondaryTaskbarHwnd, NativeMethods.ABS_AUTOHIDE);
+                NativeMethods.ShowWindow(secondaryTaskbarHwnd, NativeMethods.SW_HIDE);
             }
         }
 
         private void RestoreTaskbar()
         {
-            IntPtr taskbarHwnd = FindWindow("Shell_TrayWnd", null);
+            IntPtr taskbarHwnd = NativeMethods.FindWindow("Shell_TrayWnd", null!);
             if (taskbarHwnd != IntPtr.Zero)
             {
-                SetAppBarState(taskbarHwnd, ABS_ALWAYSONTOP);
-                ShowWindow(taskbarHwnd, SW_SHOW);
+                SetAppBarState(taskbarHwnd, NativeMethods.ABS_ALWAYSONTOP);
+                NativeMethods.ShowWindow(taskbarHwnd, NativeMethods.SW_SHOW);
             }
 
-            IntPtr secondaryTaskbarHwnd = FindWindow("Secondary_TrayWnd", null);
+            IntPtr secondaryTaskbarHwnd = NativeMethods.FindWindow("Secondary_TrayWnd", null!);
             if (secondaryTaskbarHwnd != IntPtr.Zero)
             {
-                SetAppBarState(secondaryTaskbarHwnd, ABS_ALWAYSONTOP);
-                ShowWindow(secondaryTaskbarHwnd, SW_SHOW);
+                SetAppBarState(secondaryTaskbarHwnd, NativeMethods.ABS_ALWAYSONTOP);
+                NativeMethods.ShowWindow(secondaryTaskbarHwnd, NativeMethods.SW_SHOW);
             }
         }
 
-
-        private void SetAppBarState(IntPtr taskbarHwnd, int state)
+        private static void SetAppBarState(IntPtr taskbarHwnd, int state)
         {
-            var abd = new APPBARDATA();
-            abd.cbSize = (uint)Marshal.SizeOf(abd);
-            abd.hWnd = taskbarHwnd;
-            abd.lParam = (IntPtr)state;
-            SHAppBarMessage(ABM_SETSTATE, ref abd);
+            var abd = new APPBARDATA
+            {
+                cbSize = (uint)Marshal.SizeOf<APPBARDATA>(),
+                hWnd = taskbarHwnd,
+                lParam = (IntPtr)state
+            };
+            NativeMethods.SHAppBarMessage(NativeMethods.ABM_SETSTATE, ref abd);
         }
 
         #endregion
-
-
 
         #region User Interaction (Click, Drag & Drop, Pinning, Settings)
 
         private void OpenSettings_Click(object sender, RoutedEventArgs e)
         {
-            var settingsWindow = new Settings.SettingsWindow();
-            settingsWindow.Owner = this;
+            var settingsWindow = new dockus.Settings.SettingsWindow
+            {
+                Owner = this
+            };
             settingsWindow.ShowDialog();
         }
-
-
-
-
-
 
         private void Icon_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
@@ -379,8 +381,8 @@ namespace dockus
             {
                 if (item.IsRunning && item.Hwnd != IntPtr.Zero)
                 {
-                    ShowWindow(item.Hwnd, SW_RESTORE);
-                    SetForegroundWindow(item.Hwnd);
+                    NativeMethods.ShowWindow(item.Hwnd, NativeMethods.SW_RESTORE);
+                    NativeMethods.SetForegroundWindow(item.Hwnd);
                 }
                 else if (item.IsPinned)
                 {
@@ -415,10 +417,7 @@ namespace dockus
                 {
                     PinnedItems.Add(item);
                 }
-                if (ActiveUnpinnedItems.Contains(item))
-                {
-                    ActiveUnpinnedItems.Remove(item);
-                }
+                ActiveUnpinnedItems.Remove(item);
                 SavePinnedApps();
             }
         }
@@ -445,7 +444,7 @@ namespace dockus
         private void SavePinnedApps()
         {
             var pinnedList = PinnedItems.Select(p => new PinnedApp { Type = p.IdentifierType, Identifier = p.Identifier }).ToList();
-            string json = JsonSerializer.Serialize(pinnedList, new JsonSerializerOptions { WriteIndented = true });
+            string json = JsonSerializer.Serialize(pinnedList, s_jsonOptions);
             File.WriteAllText(PinnedAppsFileName, json);
         }
 
@@ -456,6 +455,8 @@ namespace dockus
             {
                 string json = File.ReadAllText(PinnedAppsFileName);
                 var pinnedList = JsonSerializer.Deserialize<List<PinnedApp>>(json);
+
+                if (pinnedList == null) return;
 
                 PinnedItems.Clear();
                 foreach (var pinned in pinnedList)
@@ -475,7 +476,7 @@ namespace dockus
                     }
                     else
                     {
-                        item.Icon = GetIconFromAumid(pinned.Identifier, out string title);
+                        item.Icon = GetIconFromAumid(pinned.Identifier, out string? title);
                         item.Title = title ?? "App";
                     }
                     PinnedItems.Add(item);
@@ -489,7 +490,7 @@ namespace dockus
             }
         }
 
-        private void LaunchApp(WindowItem item)
+        private static void LaunchApp(WindowItem item)
         {
             try
             {
@@ -499,8 +500,8 @@ namespace dockus
                 }
                 else
                 {
-                    var activationManager = new ApplicationActivationManager();
-                    activationManager.ActivateApplication(item.Identifier, null, 0, out _);
+                    IApplicationActivationManager activationManager = new ApplicationActivationManager();
+                    activationManager.ActivateApplication(item.Identifier, null!, 0, out _);
                 }
             }
             catch (Exception ex)
@@ -513,43 +514,45 @@ namespace dockus
 
         #region Window and Icon Information Resolvers
 
-        public bool ListWindows(IntPtr hWnd, ref GCHandle lParam)
+        private bool ListWindows(IntPtr hWnd, ref GCHandle lParam)
         {
-            var list = (lParam.Target as List<WindowItem>);
+            if (lParam.Target is not List<WindowItem> list) return true;
 
-            long nStyle = GetWindowLong(hWnd, GWL_STYLE);
-            long nExStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+            long nStyle = NativeMethods.GetWindowLong(hWnd, NativeMethods.GWL_STYLE);
+            long nExStyle = NativeMethods.GetWindowLong(hWnd, NativeMethods.GWL_EXSTYLE);
 
-            if (!IsWindowVisible(hWnd) || GetWindow(hWnd, GW_OWNER) != IntPtr.Zero || (nExStyle & WS_EX_TOOLWINDOW) != 0) return true;
+            if (!NativeMethods.IsWindowVisible(hWnd) || NativeMethods.GetWindow(hWnd, NativeMethods.GW_OWNER) != IntPtr.Zero || (nExStyle & NativeMethods.WS_EX_TOOLWINDOW) != 0) return true;
             int nCloaked = 0;
-            DwmGetWindowAttribute(hWnd, (int)DWMWINDOWATTRIBUTE.DWMWA_CLOAKED, ref nCloaked, Marshal.SizeOf(typeof(int)));
+            NativeMethods.DwmGetWindowAttribute(hWnd, (int)NativeMethods.DWMWINDOWATTRIBUTE.DWMWA_CLOAKED, ref nCloaked, Marshal.SizeOf<int>());
             if (nCloaked != 0) return true;
 
-            if ((nExStyle & WS_EX_APPWINDOW) == 0 && GetWindow(hWnd, GW_OWNER) != IntPtr.Zero) return true;
-            if ((nStyle & WS_CHILDWINDOW) != 0) return true;
+            if ((nExStyle & NativeMethods.WS_EX_APPWINDOW) == 0 && NativeMethods.GetWindow(hWnd, NativeMethods.GW_OWNER) != IntPtr.Zero) return true;
+            if ((nStyle & NativeMethods.WS_CHILDWINDOW) != 0) return true;
 
-            int nTextLength = GetWindowTextLength(hWnd);
+            int nTextLength = NativeMethods.GetWindowTextLength(hWnd);
             if (nTextLength++ > 0)
             {
                 var sbText = new StringBuilder(nTextLength);
-                GetWindowText(hWnd, sbText, nTextLength);
+                NativeMethods.GetWindowText(hWnd, sbText, nTextLength);
                 string sTitle = sbText.ToString();
 
                 if (hWnd != m_hWnd && !string.IsNullOrEmpty(sTitle))
                 {
                     var item = new WindowItem { Hwnd = hWnd, Title = sTitle, IsRunning = true };
 
-                    item.Identifier = GetAumidForWindow(hWnd);
-                    if (!string.IsNullOrEmpty(item.Identifier))
+                    string? aumid = GetAumidForWindow(hWnd);
+                    if (!string.IsNullOrEmpty(aumid))
                     {
+                        item.Identifier = aumid;
                         item.IdentifierType = PinnedAppType.Aumid;
                         item.Icon = GetIconFromAumid(item.Identifier, out _);
                     }
                     else
                     {
-                        item.Identifier = GetPathForWindow(hWnd);
-                        if (!string.IsNullOrEmpty(item.Identifier))
+                        string? path = GetPathForWindow(hWnd);
+                        if (!string.IsNullOrEmpty(path))
                         {
+                            item.Identifier = path;
                             item.IdentifierType = PinnedAppType.Path;
                             item.Icon = GetIconFromPath(item.Identifier);
                         }
@@ -557,26 +560,34 @@ namespace dockus
 
                     item.Icon ??= GetWindowIcon(hWnd);
 
-                    list?.Add(item);
+                    list.Add(item);
                 }
             }
             return true;
         }
 
-        private ImageSource GetIconFromPath(string path)
+        private static BitmapSource? GetIconFromPath(string path)
         {
             if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
             try
             {
-                ExtractIconEx(path, 0, out IntPtr hLarge, out _, 1);
-                if (hLarge == IntPtr.Zero) return null;
-                try { return Imaging.CreateBitmapSourceFromHIcon(hLarge, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions()); }
-                finally { DestroyIcon(hLarge); }
+                if (NativeMethods.ExtractIconEx(path, 0, out IntPtr hLarge, out _, 1) > 0 && hLarge != IntPtr.Zero)
+                {
+                    try
+                    {
+                        return Imaging.CreateBitmapSourceFromHIcon(hLarge, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+                    }
+                    finally
+                    {
+                        NativeMethods.DestroyIcon(hLarge);
+                    }
+                }
             }
-            catch { return null; }
+            catch { /* Fall through to return null */ }
+            return null;
         }
 
-        private ImageSource GetIconFromAumid(string aumid, out string title)
+        private static ImageSource? GetIconFromAumid(string aumid, out string? title)
         {
             title = null;
             if (string.IsNullOrEmpty(aumid)) return null;
@@ -587,8 +598,8 @@ namespace dockus
                 if (sParts.Length < 1) return null;
 
                 var pm = new PackageManager();
-                var package = pm.FindPackagesForUser("", sParts[0]).FirstOrDefault();
-                if (package == null) return null;
+                var package = pm.FindPackagesForUser(string.Empty, sParts[0]).FirstOrDefault();
+                if (package?.InstalledLocation?.Path == null) return null;
 
                 string manifestPath = Path.Combine(package.InstalledLocation.Path, "AppxManifest.xml");
                 if (!File.Exists(manifestPath)) return null;
@@ -597,21 +608,18 @@ namespace dockus
                 XNamespace nsManifest = "http://schemas.microsoft.com/appx/manifest/foundation/windows10";
                 XNamespace nsUap = "http://schemas.microsoft.com/appx/manifest/uap/windows10";
 
-                var appElem = manifest.Root?.Descendants(nsManifest + "Application").FirstOrDefault(e => sParts.Length > 1 && (string)e.Attribute("Id") == sParts[1])
+                var appElem = manifest.Root?.Descendants(nsManifest + "Application").FirstOrDefault(e => sParts.Length > 1 && e.Attribute("Id")?.Value == sParts[1])
                            ?? manifest.Root?.Descendants(nsManifest + "Application").FirstOrDefault();
 
                 if (appElem == null) return null;
 
                 var visual = appElem.Descendants(nsUap + "VisualElements").FirstOrDefault();
-                title = (string)visual?.Attribute("DisplayName");
+                title = visual?.Attribute("DisplayName")?.Value;
 
                 var logoAttributes = new[] { "Square150x150Logo", "Square71x71Logo", "Square44x44Logo", "Logo" };
-                string sIconPath = null;
-                foreach (var attr in logoAttributes)
-                {
-                    sIconPath = (string)visual?.Attribute(attr);
-                    if (!string.IsNullOrEmpty(sIconPath)) break;
-                }
+                string? sIconPath = logoAttributes
+                    .Select(attr => visual?.Attribute(attr)?.Value)
+                    .FirstOrDefault(path => !string.IsNullOrEmpty(path));
 
                 if (!string.IsNullOrEmpty(sIconPath))
                 {
@@ -628,43 +636,50 @@ namespace dockus
                     }
                 }
 
-                string executable = (string)appElem.Attribute("Executable");
+                string? executable = appElem.Attribute("Executable")?.Value;
                 if (!string.IsNullOrEmpty(executable))
                 {
                     string exePath = Path.Combine(package.InstalledLocation.Path, executable);
                     return GetIconFromPath(exePath);
                 }
             }
-            catch { /* Fall */ }
+            catch { /* Fall through to return null */ }
             return null;
         }
 
-        private string GetAumidForWindow(IntPtr hWnd)
+        private static string? GetAumidForWindow(IntPtr hWnd)
         {
             try
             {
-                SHGetPropertyStoreForWindow(hWnd, ref IID_IPropertyStore, out IPropertyStore pPropertyStore);
-                if (pPropertyStore == null) return null;
-
-                try
+                // CORRECTED: Create local copies to pass by ref
+                Guid iid = IID_IPropertyStore;
+                if (NativeMethods.SHGetPropertyStoreForWindow(hWnd, ref iid, out IPropertyStore pPropertyStore) == 0)
                 {
-                    PROPVARIANT propVar = new PROPVARIANT();
-                    pPropertyStore.GetValue(ref PKEY_AppUserModel_ID, out propVar);
-                    return Marshal.PtrToStringUni(propVar.pwszVal);
-                }
-                finally
-                {
-                    Marshal.ReleaseComObject(pPropertyStore);
+                    try
+                    {
+                        // CORRECTED: Create local copies to pass by ref
+                        PROPERTYKEY key = PKEY_AppUserModel_ID;
+                        if (pPropertyStore.GetValue(ref key, out PROPVARIANT propVar) == 0)
+                        {
+                            return Marshal.PtrToStringUni(propVar.pwszVal);
+                        }
+                    }
+                    finally
+                    {
+                        Marshal.ReleaseComObject(pPropertyStore);
+                    }
                 }
             }
-            catch { return null; }
+            catch { /* Fall through to return null */ }
+            return null;
         }
 
-        private string GetPathForWindow(IntPtr hWnd)
+
+        private static string? GetPathForWindow(IntPtr hWnd)
         {
             try
             {
-                GetWindowThreadProcessId(hWnd, out uint pid);
+                NativeMethods.GetWindowThreadProcessId(hWnd, out uint pid);
                 if (pid == 0) return null;
                 using var proc = Process.GetProcessById((int)pid);
                 return proc?.MainModule?.FileName;
@@ -672,16 +687,18 @@ namespace dockus
             catch { return null; }
         }
 
-        private ImageSource GetWindowIcon(IntPtr hWnd)
+        private static BitmapSource? GetWindowIcon(IntPtr hWnd)
         {
-            IntPtr hIcon = SendMessage(hWnd, WM_GETICON, (IntPtr)ICON_BIG, IntPtr.Zero);
-            if (hIcon == IntPtr.Zero) hIcon = SendMessage(hWnd, WM_GETICON, (IntPtr)ICON_SMALL2, IntPtr.Zero);
-            if (hIcon != IntPtr.Zero) return Imaging.CreateBitmapSourceFromHIcon(hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            IntPtr hIcon = NativeMethods.SendMessage(hWnd, NativeMethods.WM_GETICON, (IntPtr)NativeMethods.ICON_BIG, IntPtr.Zero);
+            if (hIcon == IntPtr.Zero) hIcon = NativeMethods.SendMessage(hWnd, NativeMethods.WM_GETICON, (IntPtr)NativeMethods.ICON_SMALL2, IntPtr.Zero);
+            if (hIcon != IntPtr.Zero)
+            {
+                return Imaging.CreateBitmapSourceFromHIcon(hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            }
             return null;
         }
 
         #endregion
-
     }
 
     #region Value Converters
