@@ -253,6 +253,28 @@ namespace dockus
             foreach (var item in toAdd) ActiveUnpinnedItems.Add(item);
         }
 
+        #region Settings
+
+        private bool _isBarVisible = true;
+
+        private void ToggleBar_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isBarVisible)
+            {
+                _isBarVisible = false;
+                ((MenuItem)sender).Header = "Mostrar barra";
+            }
+            else
+            {
+                _isBarVisible = true;
+                ((MenuItem)sender).Header = "Ocultar barra";
+            }
+        }
+
+        #endregion
+
+
+
         #region User Interaction (Click, Drag & Drop, Pinning)
 
         private void Icon_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -563,6 +585,7 @@ namespace dockus
         }
 
         #endregion
+
     }
 
     #region Value Converters

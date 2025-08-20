@@ -23,9 +23,8 @@
         <local:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
     </Window.Resources>
 
-    <Border Background="#C0000000" BorderBrush="#FF4A4A4A" BorderThickness="1" CornerRadius="24" Padding="15,5">
+    <Border Background="#000000" BorderBrush="#FF4A4A4A" BorderThickness="1" CornerRadius="24" Padding="15,5">
         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center">
-
             <StackPanel Orientation="Horizontal">
 
                 <ItemsControl ItemsSource="{Binding PinnedItems}"
@@ -42,8 +41,8 @@
                         <DataTemplate>
                             <Grid Width="56" Height="56">
                                 <Image Width="48" Height="48" Source="{Binding Icon}" Cursor="Hand"
-MouseLeftButtonDown="Icon_MouseLeftButtonDown"
-VerticalAlignment="Center" HorizontalAlignment="Center">
+                                       MouseLeftButtonDown="Icon_MouseLeftButtonDown"
+                                       VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <Image.ToolTip>
                                         <ToolTip Content="{Binding Title}" />
                                     </Image.ToolTip>
@@ -55,9 +54,9 @@ VerticalAlignment="Center" HorizontalAlignment="Center">
                                     </Image.ContextMenu>
                                 </Image>
                                 <Rectangle Width="24" Height="3" 
-    VerticalAlignment="Bottom" HorizontalAlignment="Center" 
-    Margin="0,0,2,2"
-    RadiusX="2" RadiusY="2">
+                                           VerticalAlignment="Bottom" HorizontalAlignment="Center" 
+                                           Margin="0,0,2,2" 
+                                           RadiusX="2" RadiusY="2">
                                     <Rectangle.Fill>
                                         <Binding Path="IsRunning" Converter="{StaticResource BoolToBrushConverter}" />
                                     </Rectangle.Fill>
@@ -67,14 +66,13 @@ VerticalAlignment="Center" HorizontalAlignment="Center">
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,0" >
-                    <Separator.Visibility>
-                        <MultiBinding Converter="{StaticResource MultiBoolToVisibilityConverter}">
-                            <Binding Path="PinnedItems.Count" />
-                            <Binding Path="ActiveUnpinnedItems.Count" />
-                        </MultiBinding>
-                    </Separator.Visibility>
-                </Separator>
+                <Border Width="6" Margin="8,4" CornerRadius="2" Background="#90A1B9" BorderBrush="#FF4A4A4A" BorderThickness="1,0,1,0">
+                    <Border.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Ocultar barra" Click="ToggleBar_Click"/>
+                        </ContextMenu>
+                    </Border.ContextMenu>
+                </Border>
 
                 <ItemsControl ItemsSource="{Binding ActiveUnpinnedItems}">
                     <ItemsControl.ItemsPanel>
