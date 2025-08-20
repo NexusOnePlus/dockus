@@ -12,14 +12,14 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 
-namespace dockus.settings
+namespace dockus.Settings
 {
     /// <summary>
-    /// Lógica de interacción para settings.xaml
+    /// Lógica de interacción para SettingsWindow.xaml
     /// </summary>
-    public partial class settings : Window
+    public partial class SettingsWindow : Window
     {
-        public settings()
+        public SettingsWindow()
         {
             InitializeComponent();
         }

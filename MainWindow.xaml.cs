@@ -1,4 +1,5 @@
-﻿using GongSolutions.Wpf.DragDrop;
+﻿using dockus.Settings;
+using GongSolutions.Wpf.DragDrop;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -362,7 +363,7 @@ namespace dockus
 
         private void OpenSettings_Click(object sender, RoutedEventArgs e)
         {
-            var settingsWindow = new settings.settings();
+            var settingsWindow = new Settings.SettingsWindow();
             settingsWindow.Owner = this;
             settingsWindow.ShowDialog();
         }
@@ -374,7 +375,7 @@ namespace dockus
 
         private void Icon_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if ((sender as FrameworkElement)?.DataContext is WindowItem item)
+            if (sender is FrameworkElement { DataContext: WindowItem item })
             {
                 if (item.IsRunning && item.Hwnd != IntPtr.Zero)
                 {
@@ -405,7 +406,7 @@ namespace dockus
 
         private void Pin_Click(object sender, RoutedEventArgs e)
         {
-            if ((e.Source as FrameworkElement)?.DataContext is WindowItem item)
+            if (e.Source is FrameworkElement { DataContext: WindowItem item })
             {
                 if (string.IsNullOrEmpty(item.Identifier)) return;
 
@@ -424,7 +425,7 @@ namespace dockus
 
         private void Unpin_Click(object sender, RoutedEventArgs e)
         {
-            if ((e.Source as FrameworkElement)?.DataContext is WindowItem item)
+            if (e.Source is FrameworkElement { DataContext: WindowItem item })
             {
                 item.IsPinned = false;
                 PinnedItems.Remove(item);
@@ -554,7 +555,7 @@ namespace dockus
                         }
                     }
 
-                    if (item.Icon == null) item.Icon = GetWindowIcon(hWnd);
+                    item.Icon ??= GetWindowIcon(hWnd);
 
                     list?.Add(item);
                 }
