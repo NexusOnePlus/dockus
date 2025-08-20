@@ -195,6 +195,9 @@ namespace dockus
             PinnedItems = new ObservableCollection<WindowItem>();
             ActiveUnpinnedItems = new ObservableCollection<WindowItem>();
             this.DataContext = this;
+            _hideTimer = new DispatcherTimer();
+            _hideTimer.Interval = TimeSpan.FromMilliseconds(100);
+            _hideTimer.Tick += HideTimer_Tick;
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -255,27 +258,119 @@ namespace dockus
 
         #region Settings
 
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+
+        private const int SW_HIDE = 0;
+        private const int SW_SHOW = 5;
+
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct APPBARDATA
+        {
+            public uint cbSize;
+            public IntPtr hWnd;
+            public uint uCallbackMessage;
+            public uint uEdge;
+            public RECT rc;
+            public IntPtr lParam;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT { public int left, top, right, bottom; }
+
+        private const int ABM_SETSTATE = 0x0000000A;
+        private const int ABS_AUTOHIDE = 0x0000001;
+        private const int ABS_ALWAYSONTOP = 0x0000002;
+
+        [DllImport("shell32.dll", SetLastError = true)]
+        private static extern IntPtr SHAppBarMessage(uint dwMessage, ref APPBARDATA pData);
+
+
         private bool _isBarVisible = true;
+        private DispatcherTimer _hideTimer;
 
         private void ToggleBar_Click(object sender, RoutedEventArgs e)
         {
             if (_isBarVisible)
             {
+                _hideTimer.Start();
                 _isBarVisible = false;
                 ((MenuItem)sender).Header = "Mostrar barra";
             }
             else
             {
+                _hideTimer.Stop();
+
+                RestoreTaskbar();
+
                 _isBarVisible = true;
                 ((MenuItem)sender).Header = "Ocultar barra";
             }
+        }
+
+        private void HideTimer_Tick(object sender, EventArgs e)
+        {
+            IntPtr taskbarHwnd = FindWindow("Shell_TrayWnd", null);
+            if (taskbarHwnd != IntPtr.Zero)
+            {
+                SetAppBarState(taskbarHwnd, ABS_AUTOHIDE);
+                ShowWindow(taskbarHwnd, SW_HIDE);
+            }
+
+            IntPtr secondaryTaskbarHwnd = FindWindow("Secondary_TrayWnd", null);
+            if (secondaryTaskbarHwnd != IntPtr.Zero)
+            {
+                SetAppBarState(secondaryTaskbarHwnd, ABS_AUTOHIDE);
+                ShowWindow(secondaryTaskbarHwnd, SW_HIDE);
+            }
+        }
+
+        private void RestoreTaskbar()
+        {
+            IntPtr taskbarHwnd = FindWindow("Shell_TrayWnd", null);
+            if (taskbarHwnd != IntPtr.Zero)
+            {
+                SetAppBarState(taskbarHwnd, ABS_ALWAYSONTOP);
+                ShowWindow(taskbarHwnd, SW_SHOW);
+            }
+
+            IntPtr secondaryTaskbarHwnd = FindWindow("Secondary_TrayWnd", null);
+            if (secondaryTaskbarHwnd != IntPtr.Zero)
+            {
+                SetAppBarState(secondaryTaskbarHwnd, ABS_ALWAYSONTOP);
+                ShowWindow(secondaryTaskbarHwnd, SW_SHOW);
+            }
+        }
+
+
+        private void SetAppBarState(IntPtr taskbarHwnd, int state)
+        {
+            var abd = new APPBARDATA();
+            abd.cbSize = (uint)Marshal.SizeOf(abd);
+            abd.hWnd = taskbarHwnd;
+            abd.lParam = (IntPtr)state;
+            SHAppBarMessage(ABM_SETSTATE, ref abd);
         }
 
         #endregion
 
 
 
-        #region User Interaction (Click, Drag & Drop, Pinning)
+        #region User Interaction (Click, Drag & Drop, Pinning, Settings)
+
+        private void OpenSettings_Click(object sender, RoutedEventArgs e)
+        {
+            var settingsWindow = new settings.settings();
+            settingsWindow.Owner = this;
+            settingsWindow.ShowDialog();
+        }
+
+
+
+
+
 
         private void Icon_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {

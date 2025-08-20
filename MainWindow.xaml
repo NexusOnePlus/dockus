@@ -70,6 +70,7 @@
                     <Border.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="Ocultar barra" Click="ToggleBar_Click"/>
+                            <MenuItem Header="Configuración" Click="OpenSettings_Click"/>
                         </ContextMenu>
                     </Border.ContextMenu>
                 </Border>
