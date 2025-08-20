@@ -1,8 +1,9 @@
 ﻿<Window x:Class="dockus.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:local="clr-namespace:dockus"
         xmlns:dd="urn:gong-wpf-dragdrop"
+        xmlns:local="clr-namespace:dockus"
+        xmlns:converters="clr-namespace:dockus.Core.Converters"
         WindowStyle="None"
         Background="Transparent"
         AllowsTransparency="True"
@@ -17,10 +18,10 @@
         SizeChanged="Window_SizeChanged">
 
     <Window.Resources>
-        <local:MultiBoolToVisibilityConverter x:Key="MultiBoolToVisibilityConverter"/>
-        <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
-        <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
-        <local:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
+        <converters:MultiBoolToVisibilityConverter x:Key="MultiBoolToVisibilityConverter"/>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+        <converters:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
     </Window.Resources>
 
     <Border Background="#000000" BorderBrush="#FF4A4A4A" BorderThickness="1" CornerRadius="24" Padding="15,5">
@@ -85,8 +86,8 @@
                         <DataTemplate>
                             <Grid Width="56" Height="56">
                                 <Image Width="48" Height="48" Source="{Binding Icon}" Cursor="Hand"
-               MouseLeftButtonDown="Icon_MouseLeftButtonDown"
-               VerticalAlignment="Center" HorizontalAlignment="Center">
+                                       MouseLeftButtonDown="Icon_MouseLeftButtonDown"
+                                       VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <Image.ToolTip>
                                         <ToolTip Content="{Binding Title}" />
                                     </Image.ToolTip>
@@ -98,9 +99,9 @@
                                     </Image.ContextMenu>
                                 </Image>
                                 <Rectangle Width="24" Height="3" 
-                   VerticalAlignment="Bottom" HorizontalAlignment="Center" 
-                   Margin="0,0,2,2"
-                   RadiusX="2" RadiusY="2">
+                                           VerticalAlignment="Bottom" HorizontalAlignment="Center" 
+                                           Margin="0,0,2,2"
+                                           RadiusX="2" RadiusY="2">
                                     <Rectangle.Fill>
                                         <Binding Path="IsRunning" Converter="{StaticResource BoolToBrushConverter}" />
                                     </Rectangle.Fill>

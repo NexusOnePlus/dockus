@@ -13,12 +13,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Core\Interop\" />
-    <Folder Include="Core\Converters\" />
-    <Folder Include="Core\Models\" />
-    <Folder Include="Core\" />
-    <Folder Include="Core\Services\" />
-    <Folder Include="AppsBox\" />
     <Folder Include="Views\" />
   </ItemGroup>
 
