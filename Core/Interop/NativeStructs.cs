@@ -9,7 +9,7 @@ internal struct PROPERTYKEY { public PROPERTYKEY(Guid id, uint pid) { fmtid = id
 [StructLayout(LayoutKind.Explicit)]
 internal struct PROPVARIANT { [FieldOffset(0)] public ushort varType; [FieldOffset(8)] public IntPtr pwszVal; }
 
-[StructLayout(LayoutKind.Sequential)]
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
 internal struct APPBARDATA
 {
     public uint cbSize;

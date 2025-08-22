@@ -1,89 +1,201 @@
 ﻿using dockus.Core.Interop;
 using dockus.Core.Models;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Xml.Linq;
-using Windows.Management.Deployment;
 
 namespace dockus.Core.Services;
 
+[SupportedOSPlatform("windows10.0.17763.0")]
 public class WindowService
 {
-    private static readonly Guid IID_IPropertyStore = new("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99");
-    private static readonly PROPERTYKEY PKEY_AppUserModel_ID = new(new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), 5);
+    public bool ListWindows(IntPtr hWnd, ref GCHandle lParam, IntPtr mainWindowHandle)
+    {
+        if (lParam.Target is not List<WindowItem> list || !IsAppWindow(hWnd, mainWindowHandle))
+        {
+            return true;
+        }
+
+        string title = GetWindowTitle(hWnd);
+        if (string.IsNullOrEmpty(title))
+        {
+            return true;
+        }
+
+        var item = new WindowItem { Hwnd = hWnd, Title = title, IsRunning = true };
+        var (type, identifier) = GetIdentifierForWindow(hWnd);
+
+        if (!string.IsNullOrEmpty(identifier))
+        {
+            item.Identifier = identifier;
+            item.IdentifierType = type;
+            item.Icon = (type == PinnedAppType.Aumid)
+                ? GetIconFromAumid(item.Identifier, out _)
+                : GetIconFromPath(item.Identifier);
+        }
+
+        item.Icon ??= GetSystemIcon(hWnd);
+        list.Add(item);
+
+        return true;
+    }
 
     public ImageSource? GetIconForPinnedApp(PinnedApp app, out string? title)
     {
-        title = null;
-        if (app.Type == PinnedAppType.Path)
-        {
-            title = Path.GetFileNameWithoutExtension(app.Identifier);
-            return GetIconFromPath(app.Identifier);
-        }
-        else // AUMID
-        {
-            return GetIconFromAumid(app.Identifier, out title);
-        }
+        title = app.Type == PinnedAppType.Path ? Path.GetFileNameWithoutExtension(app.Identifier) : null;
+        return app.Type == PinnedAppType.Path
+            ? GetIconFromPath(app.Identifier)
+            : GetIconFromAumid(app.Identifier, out title);
     }
 
-    public bool ListWindows(IntPtr hWnd, ref GCHandle lParam, IntPtr mainWindowHandle)
+    #region Private: Window & Process Identification
+
+    private (PinnedAppType Type, string? Identifier) GetIdentifierForWindow(IntPtr hWnd)
     {
-        if (lParam.Target is not System.Collections.Generic.List<WindowItem> list) return true;
-
-        long nStyle = NativeMethods.GetWindowLong(hWnd, NativeMethods.GWL_STYLE);
-        long nExStyle = NativeMethods.GetWindowLong(hWnd, NativeMethods.GWL_EXSTYLE);
-
-        if (!NativeMethods.IsWindowVisible(hWnd) || NativeMethods.GetWindow(hWnd, NativeMethods.GW_OWNER) != IntPtr.Zero || (nExStyle & NativeMethods.WS_EX_TOOLWINDOW) != 0) return true;
-
-        int nCloaked = 0;
-        NativeMethods.DwmGetWindowAttribute(hWnd, (int)NativeMethods.DWMWINDOWATTRIBUTE.DWMWA_CLOAKED, ref nCloaked, Marshal.SizeOf<int>());
-        if (nCloaked != 0) return true;
-
-        if ((nExStyle & NativeMethods.WS_EX_APPWINDOW) == 0 && NativeMethods.GetWindow(hWnd, NativeMethods.GW_OWNER) != IntPtr.Zero) return true;
-        if ((nStyle & NativeMethods.WS_CHILDWINDOW) != 0) return true;
-
-        int nTextLength = NativeMethods.GetWindowTextLength(hWnd);
-        if (nTextLength++ > 0)
+        try
         {
-            var sbText = new StringBuilder(nTextLength);
-            NativeMethods.GetWindowText(hWnd, sbText, nTextLength);
-            string sTitle = sbText.ToString();
+            uint pid = GetRealProcessId(hWnd);
+            if (pid == 0) return (PinnedAppType.Path, null);
 
-            if (hWnd != mainWindowHandle && !string.IsNullOrEmpty(sTitle))
+            IntPtr processHandle = NativeMethods.OpenProcess(NativeMethods.ProcessAccessFlags.QueryLimitedInformation, false, (int)pid);
+            if (processHandle == IntPtr.Zero)
             {
-                var item = new WindowItem { Hwnd = hWnd, Title = sTitle, IsRunning = true };
+                return (PinnedAppType.Path, GetPathForDesktopApp(pid));
+            }
 
-                string? aumid = GetAumidForWindow(hWnd);
-                if (!string.IsNullOrEmpty(aumid))
+            try
+            {
+                int bufferLength = 1024;
+                var buffer = new StringBuilder(bufferLength);
+                if (NativeMethods.GetApplicationUserModelId(processHandle, ref bufferLength, buffer) == 0)
                 {
-                    item.Identifier = aumid;
-                    item.IdentifierType = PinnedAppType.Aumid;
-                    item.Icon = GetIconFromAumid(item.Identifier, out _);
+                    string aumid = buffer.ToString();
+                    return (PinnedAppType.Aumid, aumid);
                 }
-                else
-                {
-                    string? path = GetPathForWindow(hWnd);
-                    if (!string.IsNullOrEmpty(path))
-                    {
-                        item.Identifier = path;
-                        item.IdentifierType = PinnedAppType.Path;
-                        item.Icon = GetIconFromPath(item.Identifier);
-                    }
-                }
-
-                item.Icon ??= GetWindowIcon(hWnd);
-                list.Add(item);
+            }
+            finally
+            {
+                NativeMethods.CloseHandle(processHandle);
             }
         }
-        return true;
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[WARN] Failed to get AUMID, falling back to path. Error: {ex.Message}");
+        }
+
+        uint finalPid = GetRealProcessId(hWnd);
+        return (PinnedAppType.Path, GetPathForDesktopApp(finalPid));
+    }
+
+    private uint GetRealProcessId(IntPtr hWnd)
+    {
+        NativeMethods.GetWindowThreadProcessId(hWnd, out uint initialPid);
+        if (initialPid == 0) return 0;
+
+        try
+        {
+            using var initialProc = Process.GetProcessById((int)initialPid);
+            if (initialProc.ProcessName.Equals("ApplicationFrameHost", StringComparison.OrdinalIgnoreCase))
+            {
+                foreach (var childHwnd in GetChildWindows(hWnd))
+                {
+                    NativeMethods.GetWindowThreadProcessId(childHwnd, out uint childPid);
+                    if (childPid != 0 && childPid != initialPid)
+                    {
+                        return childPid;
+                    }
+                }
+            }
+        }
+        catch { /* Ignore */ }
+
+        return initialPid;
+    }
+
+    private List<IntPtr> GetChildWindows(IntPtr parent)
+    {
+        var result = new List<IntPtr>();
+        var listHandle = GCHandle.Alloc(result);
+        try
+        {
+            NativeMethods.EnumChildWindows(parent, (hWnd, lParam) =>
+            {
+                if (GCHandle.FromIntPtr(lParam).Target is List<IntPtr> list) list.Add(hWnd);
+                return true;
+            }, GCHandle.ToIntPtr(listHandle));
+        }
+        finally
+        {
+            if (listHandle.IsAllocated) listHandle.Free();
+        }
+        return result;
+    }
+
+    private string? GetPathForDesktopApp(uint pid)
+    {
+        if (pid == 0) return null;
+        try
+        {
+            using var process = Process.GetProcessById((int)pid);
+            return process.MainModule?.FileName;
+        }
+        catch { return null; }
+    }
+
+    #endregion
+
+    #region Private: Icon & Title Retrieval
+
+    private ImageSource? GetIconFromAumid(string aumid, out string? title)
+    {
+        title = null;
+        NativeMethods.IShellItem2? shellItem = null;
+        IntPtr hBitmap = IntPtr.Zero;
+        const int ICON_SIZE = 48;
+
+        try
+        {
+            if (NativeMethods.SHCreateItemInKnownFolder(NativeMethods.AppsFolder, 0, aumid, typeof(NativeMethods.IShellItem2).GUID, out shellItem) != 0 || shellItem == null)
+            {
+                return null;
+            }
+
+            var pkey = NativeMethods.PKEY_ItemNameDisplay;
+            if (shellItem.GetString(ref pkey, out string displayName) == 0)
+            {
+                title = displayName;
+            }
+
+            var imageFactory = (NativeMethods.IShellItemImageFactory)shellItem;
+            var size = new NativeMethods.SIZE { cx = ICON_SIZE, cy = ICON_SIZE };
+
+            if (imageFactory.GetImage(size, NativeMethods.SIIGBF.ICONONLY, out hBitmap) == 0 && hBitmap != IntPtr.Zero)
+            {
+                var bitmapSource = Imaging.CreateBitmapSourceFromHBitmap(
+                    hBitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+                bitmapSource.Freeze();
+                return bitmapSource;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[ERROR] Exception in GetIconFromAumid for '{aumid}': {ex.Message}");
+        }
+        finally
+        {
+            if (hBitmap != IntPtr.Zero) NativeMethods.DeleteObject(hBitmap);
+            if (shellItem != null) Marshal.ReleaseComObject(shellItem);
+        }
+
+        return null;
     }
 
     private BitmapSource? GetIconFromPath(string path)
@@ -93,118 +205,15 @@ public class WindowService
         {
             if (NativeMethods.ExtractIconEx(path, 0, out IntPtr hLarge, out _, 1) > 0 && hLarge != IntPtr.Zero)
             {
-                try
-                {
-                    return Imaging.CreateBitmapSourceFromHIcon(hLarge, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
-                }
-                finally
-                {
-                    NativeMethods.DestroyIcon(hLarge);
-                }
+                try { return Imaging.CreateBitmapSourceFromHIcon(hLarge, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions()); }
+                finally { NativeMethods.DestroyIcon(hLarge); }
             }
         }
-        catch { /* Fall through to return null */ }
+        catch { /* Ignore */ }
         return null;
     }
 
-    private ImageSource? GetIconFromAumid(string aumid, out string? title)
-    {
-        title = null;
-        if (string.IsNullOrEmpty(aumid)) return null;
-
-        try
-        {
-            string[] sParts = aumid.Split('!');
-            if (sParts.Length < 1) return null;
-
-            var pm = new PackageManager();
-            var package = pm.FindPackagesForUser(string.Empty, sParts[0]).FirstOrDefault();
-            if (package?.InstalledLocation?.Path == null) return null;
-
-            string manifestPath = Path.Combine(package.InstalledLocation.Path, "AppxManifest.xml");
-            if (!File.Exists(manifestPath)) return null;
-
-            XDocument manifest = XDocument.Load(manifestPath);
-            XNamespace nsManifest = "http://schemas.microsoft.com/appx/manifest/foundation/windows10";
-            XNamespace nsUap = "http://schemas.microsoft.com/appx/manifest/uap/windows10";
-
-            var appElem = manifest.Root?.Descendants(nsManifest + "Application").FirstOrDefault(e => sParts.Length > 1 && e.Attribute("Id")?.Value == sParts[1])
-                       ?? manifest.Root?.Descendants(nsManifest + "Application").FirstOrDefault();
-
-            if (appElem == null) return null;
-
-            var visual = appElem.Descendants(nsUap + "VisualElements").FirstOrDefault();
-            title = visual?.Attribute("DisplayName")?.Value;
-
-            var logoAttributes = new[] { "Square150x150Logo", "Square71x71Logo", "Square44x44Logo", "Logo" };
-            string? sIconPath = logoAttributes
-                .Select(attr => visual?.Attribute(attr)?.Value)
-                .FirstOrDefault(path => !string.IsNullOrEmpty(path));
-
-            if (!string.IsNullOrEmpty(sIconPath))
-            {
-                string sIconFile = Path.Combine(package.InstalledLocation.Path, sIconPath);
-                if (File.Exists(sIconFile))
-                {
-                    var bitmap = new BitmapImage();
-                    bitmap.BeginInit();
-                    bitmap.UriSource = new Uri(sIconFile, UriKind.Absolute);
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmap.EndInit();
-                    bitmap.Freeze();
-                    return bitmap;
-                }
-            }
-
-            string? executable = appElem.Attribute("Executable")?.Value;
-            if (!string.IsNullOrEmpty(executable))
-            {
-                string exePath = Path.Combine(package.InstalledLocation.Path, executable);
-                return GetIconFromPath(exePath);
-            }
-        }
-        catch { /* Fall through to return null */ }
-        return null;
-    }
-
-    private string? GetAumidForWindow(IntPtr hWnd)
-    {
-        try
-        {
-            Guid iid = IID_IPropertyStore;
-            if (NativeMethods.SHGetPropertyStoreForWindow(hWnd, ref iid, out IPropertyStore pPropertyStore) == 0)
-            {
-                try
-                {
-                    PROPERTYKEY key = PKEY_AppUserModel_ID;
-                    if (pPropertyStore.GetValue(ref key, out PROPVARIANT propVar) == 0)
-                    {
-                        return Marshal.PtrToStringUni(propVar.pwszVal);
-                    }
-                }
-                finally
-                {
-                    Marshal.ReleaseComObject(pPropertyStore);
-                }
-            }
-        }
-        catch { /* Fall through to return null */ }
-        return null;
-    }
-
-    private string? GetPathForWindow(IntPtr hWnd)
-    {
-        try
-        {
-            NativeMethods.GetWindowThreadProcessId(hWnd, out uint pid);
-            if (pid == 0) return null;
-            using var proc = Process.GetProcessById((int)pid);
-            return proc?.MainModule?.FileName;
-        }
-        catch { return null; }
-    }
-
-    private BitmapSource? GetWindowIcon(IntPtr hWnd)
+    private BitmapSource? GetSystemIcon(IntPtr hWnd)
     {
         IntPtr hIcon = NativeMethods.SendMessage(hWnd, NativeMethods.WM_GETICON, (IntPtr)NativeMethods.ICON_BIG, IntPtr.Zero);
         if (hIcon == IntPtr.Zero) hIcon = NativeMethods.SendMessage(hWnd, NativeMethods.WM_GETICON, (IntPtr)NativeMethods.ICON_SMALL2, IntPtr.Zero);
@@ -214,4 +223,29 @@ public class WindowService
         }
         return null;
     }
+
+    #endregion
+
+    #region Private: Window Helpers
+
+    private bool IsAppWindow(IntPtr hWnd, IntPtr mainWindowHandle)
+    {
+        if (hWnd == mainWindowHandle || !NativeMethods.IsWindowVisible(hWnd) || NativeMethods.GetWindow(hWnd, NativeMethods.GW_OWNER) != IntPtr.Zero) return false;
+        long exStyle = NativeMethods.GetWindowLong(hWnd, NativeMethods.GWL_EXSTYLE);
+        if ((exStyle & NativeMethods.WS_EX_TOOLWINDOW) != 0) return false;
+        int cloaked = 0;
+        NativeMethods.DwmGetWindowAttribute(hWnd, (int)NativeMethods.DWMWINDOWATTRIBUTE.DWMWA_CLOAKED, ref cloaked, Marshal.SizeOf<int>());
+        return cloaked == 0;
+    }
+
+    private string GetWindowTitle(IntPtr hWnd)
+    {
+        int length = NativeMethods.GetWindowTextLength(hWnd);
+        if (length == 0) return string.Empty;
+        var sb = new StringBuilder(length + 1);
+        NativeMethods.GetWindowText(hWnd, sb, sb.Capacity);
+        return sb.ToString();
+    }
+
+    #endregion
 }

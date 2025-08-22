@@ -73,13 +73,13 @@ public partial class MainWindow : Window, IDropTarget
         try
         {
             NativeMethods.EnumDesktopWindows(
-                       IntPtr.Zero,
-                       delegate (IntPtr hWnd, ref GCHandle lParam)
-                       {
-                           return _windowService.ListWindows(hWnd, ref lParam, m_hWnd);
-                       },
-                       ref handle
-                   );
+             IntPtr.Zero,
+             delegate (IntPtr hWnd, ref GCHandle lParam)
+             {
+                 return _windowService.ListWindows(hWnd, ref lParam, m_hWnd);
+             },
+             ref handle
+         );
         }
         finally
         {
@@ -89,23 +89,36 @@ public partial class MainWindow : Window, IDropTarget
             }
         }
 
-        foreach (var pinned in PinnedItems)
+        foreach (var pinnedItem in PinnedItems)
         {
-            var runningInstance = activeWindows.FirstOrDefault(w => w.Identifier == pinned.Identifier);
-            pinned.IsRunning = runningInstance != null;
+            var runningInstance = activeWindows.FirstOrDefault(w => w.Identifier == pinnedItem.Identifier);
+
+            pinnedItem.IsRunning = runningInstance != null;
             if (runningInstance != null)
             {
-                pinned.Hwnd = runningInstance.Hwnd;
-                pinned.Title = runningInstance.Title;
+                pinnedItem.Hwnd = runningInstance.Hwnd;
+                pinnedItem.Title = runningInstance.Title;
             }
         }
 
-        var newActiveUnpinned = activeWindows.Where(w => !PinnedItems.Any(p => p.Identifier == w.Identifier)).ToList();
-        var toRemove = ActiveUnpinnedItems.Where(item => !newActiveUnpinned.Any(w => w.Hwnd == item.Hwnd)).ToList();
-        foreach (var item in toRemove) ActiveUnpinnedItems.Remove(item);
+        var closedUnpinned = ActiveUnpinnedItems
+            .Where(item => !activeWindows.Any(w => w.Hwnd == item.Hwnd))
+            .ToList();
 
-        var toAdd = newActiveUnpinned.Where(item => !ActiveUnpinnedItems.Any(w => w.Hwnd == item.Hwnd)).ToList();
-        foreach (var item in toAdd) ActiveUnpinnedItems.Add(item);
+        foreach (var item in closedUnpinned)
+        {
+            ActiveUnpinnedItems.Remove(item);
+        }
+
+        var newUnpinned = activeWindows
+            .Where(w => !PinnedItems.Any(p => p.Identifier == w.Identifier) &&
+                        !ActiveUnpinnedItems.Any(item => item.Hwnd == w.Hwnd))
+            .ToList();
+
+        foreach (var item in newUnpinned)
+        {
+            ActiveUnpinnedItems.Add(item);
+        }
     }
 
     #region Taskbar and Settings
