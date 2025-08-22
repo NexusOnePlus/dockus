@@ -68,18 +68,14 @@ public partial class MainWindow : Window, IDropTarget
 
     private void UpdateOpenWindows(object? sender, EventArgs e)
     {
-        var activeWindows = new List<WindowItem>();
-        var handle = GCHandle.Alloc(activeWindows);
+        var liveWindows = new List<WindowItem>();
+        var handle = GCHandle.Alloc(liveWindows);
         try
         {
             NativeMethods.EnumDesktopWindows(
-             IntPtr.Zero,
-             delegate (IntPtr hWnd, ref GCHandle lParam)
-             {
-                 return _windowService.ListWindows(hWnd, ref lParam, m_hWnd);
-             },
-             ref handle
-         );
+            IntPtr.Zero,
+            delegate (IntPtr hWnd, ref GCHandle lParam) { return _windowService.ListWindows(hWnd, ref lParam, m_hWnd); },
+            ref handle);
         }
         finally
         {
@@ -91,8 +87,7 @@ public partial class MainWindow : Window, IDropTarget
 
         foreach (var pinnedItem in PinnedItems)
         {
-            var runningInstance = activeWindows.FirstOrDefault(w => w.Identifier == pinnedItem.Identifier);
-
+            var runningInstance = liveWindows.FirstOrDefault(w => w.Identifier == pinnedItem.Identifier);
             pinnedItem.IsRunning = runningInstance != null;
             if (runningInstance != null)
             {
@@ -101,21 +96,33 @@ public partial class MainWindow : Window, IDropTarget
             }
         }
 
-        var closedUnpinned = ActiveUnpinnedItems
-            .Where(item => !activeWindows.Any(w => w.Hwnd == item.Hwnd))
-            .ToList();
-
-        foreach (var item in closedUnpinned)
+        var closedItems = ActiveUnpinnedItems.Where(item => !liveWindows.Any(w => w.Hwnd == item.Hwnd)).ToList();
+        foreach (var item in closedItems)
         {
             ActiveUnpinnedItems.Remove(item);
         }
 
-        var newUnpinned = activeWindows
+        foreach (var existingItem in ActiveUnpinnedItems)
+        {
+            var liveData = liveWindows.FirstOrDefault(w => w.Hwnd == existingItem.Hwnd);
+            if (liveData != null)
+            {
+                if (existingItem.Identifier != liveData.Identifier)
+                {
+                    existingItem.Identifier = liveData.Identifier;
+                    existingItem.IdentifierType = liveData.IdentifierType;
+                    existingItem.Icon = liveData.Icon;
+                }
+                existingItem.Title = liveData.Title;
+            }
+        }
+
+        var newItems = liveWindows
             .Where(w => !PinnedItems.Any(p => p.Identifier == w.Identifier) &&
                         !ActiveUnpinnedItems.Any(item => item.Hwnd == w.Hwnd))
             .ToList();
 
-        foreach (var item in newUnpinned)
+        foreach (var item in newItems)
         {
             ActiveUnpinnedItems.Add(item);
         }

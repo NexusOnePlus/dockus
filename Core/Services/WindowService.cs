@@ -33,6 +33,7 @@ public class WindowService
         var item = new WindowItem { Hwnd = hWnd, Title = title, IsRunning = true };
         var (type, identifier) = GetIdentifierForWindow(hWnd);
 
+
         if (!string.IsNullOrEmpty(identifier))
         {
             item.Identifier = identifier;
