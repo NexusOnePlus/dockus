@@ -24,6 +24,10 @@ internal static class NativeMethods
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     internal static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    internal static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+
     [DllImport("user32.dll")]
     internal static extern int GetWindowTextLength(IntPtr hWnd);
 
@@ -48,9 +52,6 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool DestroyIcon(IntPtr hIcon);
-
-    [DllImport("user3.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    internal static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
 
     [DllImport("user32.dll")]
     internal static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);

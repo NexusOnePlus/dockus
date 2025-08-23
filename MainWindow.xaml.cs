@@ -6,12 +6,14 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace dockus;
@@ -48,12 +50,48 @@ public partial class MainWindow : Window, IDropTarget
     {
         m_hWnd = new WindowInteropHelper(this).Handle;
         this.MaxWidth = SystemParameters.WorkArea.Width;
+       // this.Left = (SystemParameters.WorkArea.Width - this.ActualWidth ) / 2;
+        // this.Top = SystemParameters.PrimaryScreenHeight - this.ActualHeight;
+
+       PositionWindow();
 
         LoadPinnedApps();
 
         _updateTimer.Start();
         UpdateOpenWindows(null, EventArgs.Empty);
     }
+
+    private void PositionWindow()
+    {
+        if (m_hWnd == IntPtr.Zero) return;
+
+        var source = PresentationSource.FromVisual(this);
+        if (source?.CompositionTarget == null) return;
+
+        Matrix matrix = source.CompositionTarget.TransformToDevice;
+        double dpiScaleX = matrix.M11;
+        double dpiScaleY = matrix.M22;
+        Debug.WriteLine($"DPI Scale: X={dpiScaleX}, Y={dpiScaleY}");
+
+        double screenWidthInPixels = SystemParameters.PrimaryScreenWidth * dpiScaleX;
+        double screenHeightInPixels = SystemParameters.PrimaryScreenHeight * dpiScaleY;
+
+
+        Debug.WriteLine($"Screen Size (Physical Pixels): {screenWidthInPixels}x{screenHeightInPixels}");
+
+        double windowWidthInPixels = this.ActualWidth;
+        double windowHeightInPixels = this.ActualHeight;
+
+        Debug.WriteLine($"Window Size (Physical Pixels): {windowWidthInPixels}x{windowHeightInPixels}");
+
+        double physicalLeft = (screenWidthInPixels - windowWidthInPixels) / 2;
+        double physicalTop = screenHeightInPixels - windowHeightInPixels;
+        Debug.WriteLine($"Calculated Position (Physical Pixels): Left={physicalLeft}, Top={physicalTop}");
+
+        this.Left = physicalLeft / dpiScaleX;
+        this.Top = physicalTop / dpiScaleY - 60;
+    }
+
 
     private void Window_Closing(object sender, CancelEventArgs e)
     {
