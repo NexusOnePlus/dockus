@@ -9,11 +9,13 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 
 namespace dockus;
@@ -23,6 +25,15 @@ public partial class MainWindow : Window, IDropTarget
     private IntPtr m_hWnd = IntPtr.Zero;
     private readonly DispatcherTimer _updateTimer;
     private readonly DispatcherTimer _hideTimer;
+    private readonly DispatcherTimer _dockHideDelayTimer;
+    private bool _isInteractionPending = false;
+    private const double Y_OFFSET = 60.0; //just in case
+
+
+
+    private NativeMethods.WinEventDelegate? _winEventDelegate;
+    private IntPtr _winEventHook = IntPtr.Zero;
+
 
     // Services
     private readonly PersistenceService _persistenceService = new();
@@ -44,6 +55,10 @@ public partial class MainWindow : Window, IDropTarget
 
         _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _updateTimer.Tick += UpdateOpenWindows;
+
+        _dockHideDelayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _dockHideDelayTimer.Tick += DockHideDelay_Tick;
+
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
@@ -53,55 +68,47 @@ public partial class MainWindow : Window, IDropTarget
        // this.Left = (SystemParameters.WorkArea.Width - this.ActualWidth ) / 2;
         // this.Top = SystemParameters.PrimaryScreenHeight - this.ActualHeight;
 
-       PositionWindow();
+        PositionWindow();
+        this.Top = _hiddenTop;
 
         LoadPinnedApps();
 
         _updateTimer.Start();
-        UpdateOpenWindows(null, EventArgs.Empty);
+        // UpdateOpenWindows(null, EventArgs.Empty);
+
+        _winEventDelegate = new NativeMethods.WinEventDelegate(WinEventProc);
+        _winEventHook = NativeMethods.SetWinEventHook(
+            NativeMethods.EVENT_SYSTEM_FOREGROUND, NativeMethods.EVENT_SYSTEM_MOVESIZEEND,
+            IntPtr.Zero, _winEventDelegate, 0, 0, NativeMethods.WINEVENT_OUTOFCONTEXT);
+
+        UpdateDockVisibility(true);
     }
 
     private void PositionWindow()
     {
-        if (m_hWnd == IntPtr.Zero) return;
+        if (m_hWnd == IntPtr.Zero || MainBorder == null || this.ActualHeight == 0) return;
 
-        var source = PresentationSource.FromVisual(this);
-        if (source?.CompositionTarget == null) return;
+        double screenHeight = SystemParameters.PrimaryScreenHeight;
+        double visibleDockHeight = MainBorder.ActualHeight;
 
-        Matrix matrix = source.CompositionTarget.TransformToDevice;
-        double dpiScaleX = matrix.M11;
-        double dpiScaleY = matrix.M22;
-        Debug.WriteLine($"DPI Scale: X={dpiScaleX}, Y={dpiScaleY}");
+        _shownTop = screenHeight - visibleDockHeight;
+        _hiddenTop = screenHeight - TRIGGER_HEIGHT;
 
-        double screenWidthInPixels = SystemParameters.PrimaryScreenWidth * dpiScaleX;
-        double screenHeightInPixels = SystemParameters.PrimaryScreenHeight * dpiScaleY;
-
-
-        Debug.WriteLine($"Screen Size (Physical Pixels): {screenWidthInPixels}x{screenHeightInPixels}");
-
-        double windowWidthInPixels = this.ActualWidth;
-        double windowHeightInPixels = this.ActualHeight;
-
-        Debug.WriteLine($"Window Size (Physical Pixels): {windowWidthInPixels}x{windowHeightInPixels}");
-
-        double physicalLeft = (screenWidthInPixels - windowWidthInPixels) / 2;
-        double physicalTop = screenHeightInPixels - windowHeightInPixels;
-        Debug.WriteLine($"Calculated Position (Physical Pixels): Left={physicalLeft}, Top={physicalTop}");
-
-        this.Left = physicalLeft / dpiScaleX;
-        this.Top = physicalTop / dpiScaleY - 60;
+        this.Left = (SystemParameters.WorkArea.Width - this.ActualWidth) / 2;
     }
 
 
     private void Window_Closing(object sender, CancelEventArgs e)
     {
+        NativeMethods.UnhookWinEvent(_winEventHook);
         _persistenceService.SavePinnedApps(PinnedItems);
         RestoreTaskbar();
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        this.Left = (SystemParameters.WorkArea.Width - this.ActualWidth) / 2;
+        // this.Left = (SystemParameters.WorkArea.Width - this.ActualWidth) / 2;
+        PositionWindow();
     }
 
     private void UpdateOpenWindows(object? sender, EventArgs e)
@@ -243,6 +250,9 @@ public partial class MainWindow : Window, IDropTarget
     #region User Interaction
     private void Icon_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        Debug.WriteLine("[LOG] Icon clicked. Grace period activated.");
+        _isInteractionPending = true;
+        _dockHideDelayTimer.Stop();
         if (sender is FrameworkElement { DataContext: WindowItem item })
         {
             if (item.IsRunning && item.Hwnd != IntPtr.Zero)
@@ -325,4 +335,165 @@ public partial class MainWindow : Window, IDropTarget
         }
     }
     #endregion
+    private const double TRIGGER_HEIGHT = 2.0;
+    private double _hiddenTop;
+    private double _shownTop;
+    private void Window_MouseEnter(object sender, MouseEventArgs e)
+    {
+        Debug.WriteLine("[LOG] Mouse ENTER. Cancelling hide timer.");
+        _dockHideDelayTimer.Stop();
+        AnimateDock(_shownTop);
+    }
+
+    private void Window_MouseLeave(object sender, MouseEventArgs e)
+    {
+        if (_isInteractionPending)
+        {
+            Debug.WriteLine("[LOG] Mouse LEAVE. Grace period active, not hiding.");
+            _isInteractionPending = false;
+            return;
+        }
+        Debug.WriteLine("[LOG] Mouse LEAVE. Starting 4-second hide timer.");
+        _dockHideDelayTimer.Start();
+    }
+
+    private void DockHideDelay_Tick(object? sender, EventArgs e)
+    {
+        _dockHideDelayTimer.Stop();
+        if (!this.IsMouseOver)
+        {
+            UpdateDockVisibility(false);
+        }
+    }
+
+    private void PeekTimer_Tick(object? sender, EventArgs e)
+    {
+        if (this.IsMouseOver || _dockHideDelayTimer.IsEnabled || _isInteractionPending)
+        {
+            return;
+        }
+
+        Debug.WriteLine("[LOG] Peek Timer: Checking for window behind dock...");
+        if (IsWindowBehindDock())
+        {
+            if (this.Top != _hiddenTop) AnimateDock(_hiddenTop);
+        }
+        else
+        {
+            if (this.Top != _shownTop) AnimateDock(_shownTop);
+        }
+    }
+
+    private bool IsWindowBehindDock()
+    {
+        if (m_hWnd == IntPtr.Zero) return true;
+        var source = PresentationSource.FromVisual(this);
+        if (source?.CompositionTarget == null) return true;
+
+        Matrix matrix = source.CompositionTarget.TransformToDevice;
+        var logicalPoint = new Point(this.Left + this.ActualWidth / 2, _shownTop + (MainBorder?.ActualHeight ?? 0) / 2);
+        var physicalPoint = matrix.Transform(logicalPoint);
+        var screenPoint = new NativeMethods.POINT { X = (int)physicalPoint.X, Y = (int)physicalPoint.Y };
+
+        IntPtr hWndAtPoint = NativeMethods.WindowFromPoint(screenPoint);
+
+        if (hWndAtPoint == IntPtr.Zero || hWndAtPoint == m_hWnd || hWndAtPoint == NativeMethods.GetDesktopWindow())
+        {
+            return false;
+        }
+
+        long style = NativeMethods.GetWindowLong(hWndAtPoint, NativeMethods.GWL_EXSTYLE);
+        bool isVisible = NativeMethods.IsWindowVisible(hWndAtPoint);
+
+        bool isAppWindow = (style & NativeMethods.WS_EX_APPWINDOW) == NativeMethods.WS_EX_APPWINDOW;
+        bool isRealAppWindow = isVisible && isAppWindow;
+
+        var classNameBuilder = new StringBuilder(256);
+        NativeMethods.GetClassName(hWndAtPoint, classNameBuilder, classNameBuilder.Capacity);
+
+        Debug.WriteLine($"[LOG] IsWindowBehindDock Check:");
+        Debug.WriteLine($"  -> HWND Found: {hWndAtPoint}");
+        Debug.WriteLine($"  -> Class Name: '{classNameBuilder}'");
+        Debug.WriteLine($"  -> Is Visible? {isVisible}");
+        Debug.WriteLine($"  -> Is App Window (Taskbar)? {isAppWindow}");
+        Debug.WriteLine($"  -> FINAL DECISION: A REAL app window is behind the dock = {isRealAppWindow}");
+
+        return isRealAppWindow;
+    }
+
+    private void AnimateDock(double toValue)
+    {
+        if (Math.Abs(this.Top - toValue) < 1) return;
+
+        var animation = new DoubleAnimation
+        {
+            To = toValue,
+            Duration = TimeSpan.FromMilliseconds(500),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        this.BeginAnimation(Window.TopProperty, animation);
+    }
+    void WinEventProc(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+    {
+        Dispatcher.BeginInvoke(new Action(() => UpdateDockVisibility(false)));
+    }
+    private void UpdateDockVisibility(bool isInitialLoad)
+    {
+        if (this.IsMouseOver || _dockHideDelayTimer.IsEnabled || _isInteractionPending)
+        {
+            return;
+        }
+
+        IntPtr foregroundHWnd = NativeMethods.GetForegroundWindow();
+        bool shouldHide = false;
+
+        IntPtr progman = NativeMethods.FindWindow("Progman", null);
+        IntPtr workerw = NativeMethods.FindWindow("WorkerW", null);
+
+        if (foregroundHWnd == progman || foregroundHWnd == workerw)
+        {
+            shouldHide = false;
+            Debug.WriteLine($"[LOGIC] UpdateDockVisibility: Foreground is the Desktop Shell ({foregroundHWnd}). Showing dock.");
+        }
+        else if (foregroundHWnd != IntPtr.Zero && foregroundHWnd != m_hWnd)
+        {
+            NativeMethods.GetWindowRect(foregroundHWnd, out NativeMethods.RECT windowRect);
+
+            var source = PresentationSource.FromVisual(this);
+            if (source?.CompositionTarget != null)
+            {
+                Matrix matrix = source.CompositionTarget.TransformToDevice;
+
+                var dockLogicalRect = new Rect(this.Left, _shownTop, this.ActualWidth, MainBorder.ActualHeight);
+                Point physicalTopLeft = matrix.Transform(dockLogicalRect.TopLeft);
+                Point physicalBottomRight = matrix.Transform(dockLogicalRect.BottomRight);
+
+                var dockRect = new NativeMethods.RECT
+                {
+                    left = (int)physicalTopLeft.X,
+                    top = (int)physicalTopLeft.Y,
+                    right = (int)physicalBottomRight.X,
+                    bottom = (int)physicalBottomRight.Y
+                };
+
+                if (NativeMethods.IntersectRect(out _, ref windowRect, ref dockRect))
+                {
+                    shouldHide = true;
+                }
+            }
+        }
+
+        Debug.WriteLine($"[LOGIC] UpdateDockVisibility: Foreground HWND is {foregroundHWnd}. Intersects = {shouldHide}");
+
+        double targetTop = shouldHide ? _hiddenTop : _shownTop;
+
+        if (isInitialLoad)
+        {
+            this.Top = targetTop;
+        }
+        else
+        {
+            AnimateDock(targetTop);
+        }
+    }
 }

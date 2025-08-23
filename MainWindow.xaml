@@ -15,7 +15,10 @@
         WindowStartupLocation="Manual"
         Loaded="Window_Loaded"
         Closing="Window_Closing"
-        SizeChanged="Window_SizeChanged">
+        SizeChanged="Window_SizeChanged"
+        MouseEnter="Window_MouseEnter"
+        MouseLeave="Window_MouseLeave"
+        >
 
     <Window.Resources>
         <converters:MultiBoolToVisibilityConverter x:Key="MultiBoolToVisibilityConverter"/>
@@ -24,7 +27,7 @@
         <converters:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
     </Window.Resources>
 
-    <Border Background="#000000" BorderBrush="#FF4A4A4A" BorderThickness="1" CornerRadius="24" Padding="15,5">
+    <Border x:Name="MainBorder" Background="#000000" BorderBrush="#FF4A4A4A" BorderThickness="1" CornerRadius="24" Padding="15,5">
         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center">
             <StackPanel Orientation="Horizontal">
 
@@ -42,7 +45,7 @@
                         <DataTemplate>
                             <Grid Width="56" Height="56">
                                 <Image Width="48" Height="48" Source="{Binding Icon}" Cursor="Hand"
-                                       MouseLeftButtonDown="Icon_MouseLeftButtonDown"
+                                       MouseLeftButtonUp="Icon_MouseLeftButtonDown"
                                        VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <Image.ToolTip>
                                         <ToolTip Content="{Binding Title}" />
