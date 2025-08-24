@@ -4,6 +4,7 @@
         xmlns:dd="urn:gong-wpf-dragdrop"
         xmlns:local="clr-namespace:dockus"
         xmlns:converters="clr-namespace:dockus.Core.Converters"
+        xmlns:core="clr-namespace:dockus.Core.Models"
         WindowStyle="None"
         Topmost="True"
         Background="Transparent"
@@ -22,13 +23,16 @@
         >
 
     <Window.Resources>
+        <converters:ColorToBrushConverter x:Key="ColorToBrushConverter"/>
         <converters:MultiBoolToVisibilityConverter x:Key="MultiBoolToVisibilityConverter"/>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
         <converters:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
     </Window.Resources>
 
-    <Border x:Name="MainBorder" Background="#000000" BorderBrush="#FF4A4A4A" BorderThickness="1" CornerRadius="24" Padding="15,5">
+    <Border x:Name="MainBorder" BorderBrush="#FF4A4A4A" BorderThickness="1" CornerRadius="24" Padding="15,5"
+            Background="{Binding Source={x:Static core:AppSettings.Current}, Path=DockBackground, Converter={StaticResource ColorToBrushConverter}}"
+            >
         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center">
             <StackPanel Orientation="Horizontal">
 

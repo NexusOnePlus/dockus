@@ -10,6 +10,7 @@ namespace dockus.Core.Services;
 public class PersistenceService
 {
     private const string PinnedAppsFileName = "pinned_apps.json";
+    private const string SettingsFileName = "settings.json";
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
 
     public void SavePinnedApps(IEnumerable<WindowItem> pinnedItems)
@@ -44,4 +45,38 @@ public class PersistenceService
             return new List<PinnedApp>();
         }
     }
+
+    public void SaveSettings(AppSettings settings)
+    {
+        try
+        {
+            string json = JsonSerializer.Serialize(settings, s_jsonOptions);
+            File.WriteAllText(SettingsFileName, json);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[ERROR] Failed to save settings: {ex.Message}");
+        }
+    }
+
+    public AppSettings LoadSettings()
+    {
+        if (!File.Exists(SettingsFileName))
+        {
+            return new AppSettings();
+        }
+        try
+        {
+            string json = File.ReadAllText(SettingsFileName);
+            var settings = JsonSerializer.Deserialize<AppSettings>(json);
+            return settings ?? new AppSettings();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[ERROR] Failed to load settings: {ex.Message}");
+            File.Delete(SettingsFileName);
+            return new AppSettings();
+        }
+    }
+
 }
