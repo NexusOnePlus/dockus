@@ -447,8 +447,8 @@ public partial class MainWindow : Window, IDropTarget
         IntPtr foregroundHWnd = NativeMethods.GetForegroundWindow();
         bool shouldHide = false;
 
-        IntPtr progman = NativeMethods.FindWindow("Progman", null);
-        IntPtr workerw = NativeMethods.FindWindow("WorkerW", null);
+        IntPtr progman = NativeMethods.FindWindow("Progman", String.Empty);
+        IntPtr workerw = NativeMethods.FindWindow("WorkerW", String.Empty);
 
         if (foregroundHWnd == progman || foregroundHWnd == workerw)
         {
@@ -496,4 +496,11 @@ public partial class MainWindow : Window, IDropTarget
             AnimateDock(targetTop);
         }
     }
+
+    private void Exit_Click(object sender, RoutedEventArgs e)
+    {
+        RestoreTaskbar();
+        Application.Current.Shutdown();
+    }
+
 }

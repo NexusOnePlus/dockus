@@ -75,6 +75,7 @@
                         <ContextMenu>
                             <MenuItem Header="Ocultar barra" Click="ToggleBar_Click"/>
                             <MenuItem Header="Configuración" Click="OpenSettings_Click"/>
+                            <MenuItem Header="Close" Click="Exit_Click"/>
                         </ContextMenu>
                     </Border.ContextMenu>
                 </Border>
