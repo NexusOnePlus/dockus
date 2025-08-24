@@ -503,4 +503,14 @@ public partial class MainWindow : Window, IDropTarget
         Application.Current.Shutdown();
     }
 
+    private void Window_SourceInitialized(object sender, EventArgs e)
+    {
+        var helper = new WindowInteropHelper(this);
+        IntPtr hwnd = helper.Handle;
+
+        IntPtr extendedStyle = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE);
+
+        NativeMethods.SetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE,
+            new IntPtr(extendedStyle.ToInt64() | NativeMethods.WS_EX_TOOLWINDOW));
+    }
 }
