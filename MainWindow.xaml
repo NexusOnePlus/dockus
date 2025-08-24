@@ -18,6 +18,7 @@
         SizeChanged="Window_SizeChanged"
         MouseEnter="Window_MouseEnter"
         MouseLeave="Window_MouseLeave"
+        ShowInTaskbar="False"
         >
 
     <Window.Resources>

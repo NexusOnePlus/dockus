@@ -91,7 +91,7 @@ public partial class MainWindow : Window, IDropTarget
         double screenHeight = SystemParameters.PrimaryScreenHeight;
         double visibleDockHeight = MainBorder.ActualHeight;
 
-        _shownTop = screenHeight - visibleDockHeight;
+        _shownTop = screenHeight - visibleDockHeight - 4;
         _hiddenTop = screenHeight - TRIGGER_HEIGHT;
 
         this.Left = (SystemParameters.WorkArea.Width - this.ActualWidth) / 2;
