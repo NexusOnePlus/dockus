@@ -1,7 +1,5 @@
 ﻿using dockus.Core.Interop;
 using dockus.Core.Models;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;

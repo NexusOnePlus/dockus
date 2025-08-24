@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
-using System;
 
 namespace dockus.Core.Models;
 

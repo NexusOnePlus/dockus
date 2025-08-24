@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <PackageReference Include="gong-wpf-dragdrop" Version="4.0.0" />
+    <PackageReference Include="SharpVectors" Version="1.8.5" />
   </ItemGroup>
 
   <ItemGroup>

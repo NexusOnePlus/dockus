@@ -2,12 +2,9 @@
 using dockus.Core.Models;
 using dockus.Core.Services;
 using GongSolutions.Wpf.DragDrop;
-using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
@@ -65,7 +62,7 @@ public partial class MainWindow : Window, IDropTarget
     {
         m_hWnd = new WindowInteropHelper(this).Handle;
         this.MaxWidth = SystemParameters.WorkArea.Width;
-       // this.Left = (SystemParameters.WorkArea.Width - this.ActualWidth ) / 2;
+        // this.Left = (SystemParameters.WorkArea.Width - this.ActualWidth ) / 2;
         // this.Top = SystemParameters.PrimaryScreenHeight - this.ActualHeight;
 
         PositionWindow();
@@ -513,4 +510,5 @@ public partial class MainWindow : Window, IDropTarget
         NativeMethods.SetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE,
             new IntPtr(extendedStyle.ToInt64() | NativeMethods.WS_EX_TOOLWINDOW));
     }
+
 }

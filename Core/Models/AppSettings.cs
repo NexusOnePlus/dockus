@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using dockus.Core.Services;
 using System.ComponentModel;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Media;
 using System.Text.Json.Serialization;
-using dockus.Core.Services;
+using System.Windows.Media;
 namespace dockus.Core.Models;
 
 public class AppSettings : INotifyPropertyChanged

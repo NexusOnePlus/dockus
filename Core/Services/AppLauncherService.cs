@@ -1,6 +1,5 @@
 ﻿using dockus.Core.Interop;
 using dockus.Core.Models;
-using System;
 using System.Diagnostics;
 using System.Windows;
 
