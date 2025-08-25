@@ -13,8 +13,8 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Threading;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 
 namespace dockus;
 
@@ -62,7 +62,8 @@ public partial class MainWindow : Window, IDropTarget
         {
             Interval = TimeSpan.FromSeconds(30)
         };
-        _timer.Tick += (s, e) => {
+        _timer.Tick += (s, e) =>
+        {
             UpdateTime();
             UpdateBattery();
         };
@@ -504,7 +505,7 @@ public partial class MainWindow : Window, IDropTarget
         if (foregroundHWnd == progman || foregroundHWnd == workerw)
         {
             shouldHide = false;
-            Debug.WriteLine($"[LOGIC] UpdateDockVisibility: Foreground is the Desktop Shell ({foregroundHWnd}). Showing dock.");
+            // Debug.WriteLine($"[LOGIC] UpdateDockVisibility: Foreground is the Desktop Shell ({foregroundHWnd}). Showing dock.");
         }
         else if (foregroundHWnd != IntPtr.Zero && foregroundHWnd != m_hWnd)
         {
@@ -565,4 +566,13 @@ public partial class MainWindow : Window, IDropTarget
             new IntPtr(extendedStyle.ToInt64() | NativeMethods.WS_EX_TOOLWINDOW));
     }
 
+    private void Notifications_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        Process.Start(new ProcessStartInfo("ms-actioncenter:") { UseShellExecute = true });
+    }
+
+    private void System_Tray_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        TrayPopup.IsOpen = !TrayPopup.IsOpen;
+    }
 }

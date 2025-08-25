@@ -153,6 +153,8 @@
                             BorderThickness="0.2"
                             CornerRadius="4"
                             Background="Black"
+                            Cursor="Hand"
+                            MouseLeftButtonUp="Notifications_MouseLeftButtonUp"
                         >
                         <ContentControl Content="{StaticResource Notification}" />
                     </Border>
@@ -184,7 +186,8 @@
                         BorderThickness="0.2"
                         CornerRadius="4"
                         Background="Black"
-                        MouseLeftButtonUp="OpenSettings_Click"
+                        MouseLeftButtonUp="System_Tray_MouseLeftButtonUp"
+                        Cursor="Hand"
                         >
                         <ContentControl Content="{StaticResource SystemTray}" />
                     </Border>
@@ -229,6 +232,28 @@
                     </Border>
 
                 </Grid>
+                <Popup x:Name="TrayPopup"
+       PlacementTarget="{Binding ElementName=System_Tray}"
+       Placement="Top"
+       VerticalOffset="-10"
+       StaysOpen="False"
+       AllowsTransparency="True"
+       PopupAnimation="Slide">
+                    <Border Background="#CC1E1E1E"
+            CornerRadius="6"
+            BorderBrush="Gray"
+            BorderThickness="1"
+            Padding="8">
+                        <StackPanel>
+                            <TextBlock Text="System Tray"
+                       Foreground="White"
+                       FontSize="12"/>
+                            <TextBlock Text="Still in development"
+                       Foreground="LightGray"
+                       FontSize="10"/>
+                        </StackPanel>
+                    </Border>
+                </Popup>
 
             </StackPanel>
         </ScrollViewer>
