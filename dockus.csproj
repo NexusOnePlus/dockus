@@ -20,8 +20,15 @@
   <ItemGroup>
     <PackageReference Include="gong-wpf-dragdrop" Version="4.0.0" />
     <PackageReference Include="SharpVectors" Version="1.8.5" />
+    <PackageReference Include="Velopack" Version="0.0.1298" />
   </ItemGroup>
 
+	<ItemGroup>
+		<ApplicationDefinition Remove="App.xaml"/>
+		<Page Include="App.xaml"/>
+	</ItemGroup>
+	
+	
   <ItemGroup>
     <Folder Include="Views\" />
   </ItemGroup>
