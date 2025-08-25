@@ -14,6 +14,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using System.Windows.Shapes;
 
 namespace dockus;
 
@@ -23,6 +24,7 @@ public partial class MainWindow : Window, IDropTarget
     private readonly DispatcherTimer _updateTimer;
     private readonly DispatcherTimer _hideTimer;
     private readonly DispatcherTimer _dockHideDelayTimer;
+    private readonly DispatcherTimer _timer;
     private bool _isInteractionPending = false;
     private const double Y_OFFSET = 60.0; //just in case
 
@@ -55,6 +57,19 @@ public partial class MainWindow : Window, IDropTarget
 
         _dockHideDelayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _dockHideDelayTimer.Tick += DockHideDelay_Tick;
+
+        _timer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(30)
+        };
+        _timer.Tick += (s, e) => {
+            UpdateTime();
+            UpdateBattery();
+        };
+        _timer.Start();
+
+        UpdateTime();
+        UpdateBattery();
 
     }
 
@@ -106,6 +121,45 @@ public partial class MainWindow : Window, IDropTarget
     {
         // this.Left = (SystemParameters.WorkArea.Width - this.ActualWidth) / 2;
         PositionWindow();
+    }
+
+    private void UpdateTime()
+    {
+        ClockText.Text = DateTime.Now.ToString("hh:mm tt").ToLower();
+    }
+
+    private void UpdateBattery()
+    {
+        int percent = WindowService.GetBatteryPercent();
+        bool charging = WindowService.IsCharging();
+
+
+        BatteryPercentText.Text = $"{percent}%";
+
+        if (BatteryIconControl.Content is Viewbox vb &&
+         vb.Child is Canvas canvas)
+        {
+            var body = canvas.Children.OfType<Rectangle>().FirstOrDefault();
+            if (body != null)
+            {
+                if (charging)
+                {
+                    body.Fill = Brushes.Yellow;
+                }
+                else if (percent > 50)
+                {
+                    body.Fill = Brushes.Green;
+                }
+                else if (percent > 20)
+                {
+                    body.Fill = Brushes.Orange;
+                }
+                else
+                {
+                    body.Fill = Brushes.Red;
+                }
+            }
+        }
     }
 
     private void UpdateOpenWindows(object? sender, EventArgs e)
@@ -407,14 +461,14 @@ public partial class MainWindow : Window, IDropTarget
 
         var classNameBuilder = new StringBuilder(256);
         NativeMethods.GetClassName(hWndAtPoint, classNameBuilder, classNameBuilder.Capacity);
-
+        /*
         Debug.WriteLine($"[LOG] IsWindowBehindDock Check:");
         Debug.WriteLine($"  -> HWND Found: {hWndAtPoint}");
         Debug.WriteLine($"  -> Class Name: '{classNameBuilder}'");
         Debug.WriteLine($"  -> Is Visible? {isVisible}");
         Debug.WriteLine($"  -> Is App Window (Taskbar)? {isAppWindow}");
         Debug.WriteLine($"  -> FINAL DECISION: A REAL app window is behind the dock = {isRealAppWindow}");
-
+        */
         return isRealAppWindow;
     }
 
@@ -480,7 +534,7 @@ public partial class MainWindow : Window, IDropTarget
             }
         }
 
-        Debug.WriteLine($"[LOGIC] UpdateDockVisibility: Foreground HWND is {foregroundHWnd}. Intersects = {shouldHide}");
+        // Debug.WriteLine($"[LOGIC] UpdateDockVisibility: Foreground HWND is {foregroundHWnd}. Intersects = {shouldHide}");
 
         double targetTop = shouldHide ? _hiddenTop : _shownTop;
 

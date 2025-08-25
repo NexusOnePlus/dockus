@@ -5,6 +5,12 @@ namespace dockus.Core.Interop;
 
 internal static class NativeMethods
 {
+    #region Battery
+    [DllImport("kernel32.dll")]
+    public static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS sps);
+
+    #endregion
+
     #region Hiding from alt+tab
     [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
     private static extern IntPtr GetWindowLongPtr32(IntPtr hWnd, int nIndex);

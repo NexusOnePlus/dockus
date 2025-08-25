@@ -15,6 +15,23 @@ namespace dockus.Core.Services;
 [SupportedOSPlatform("windows10.0.17763.0")]
 public class WindowService
 {
+    public static int GetBatteryPercent()
+    {
+        if (NativeMethods.GetSystemPowerStatus(out SYSTEM_POWER_STATUS sps))
+        {
+            return sps.BatteryLifePercent;
+        }
+        return -1;
+    }
+
+    public static bool IsCharging()
+    {
+        if (NativeMethods.GetSystemPowerStatus(out SYSTEM_POWER_STATUS sps))
+        {
+            return sps.ACLineStatus == 1;
+        }
+        return false;
+    }
     public bool ListWindows(IntPtr hWnd, ref GCHandle lParam, IntPtr mainWindowHandle)
     {
         if (lParam.Target is not List<WindowItem> list || !IsAppWindow(hWnd, mainWindowHandle))

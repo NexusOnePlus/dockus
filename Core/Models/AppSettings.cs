@@ -13,7 +13,7 @@ public class AppSettings : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    private Color _dockBackground = (Color)ColorConverter.ConvertFromString("#FF222222");
+    private Color _dockBackground = (Color)ColorConverter.ConvertFromString("#FF000000");
 
     [JsonIgnore]
     public Color DockBackground

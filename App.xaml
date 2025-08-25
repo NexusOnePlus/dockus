@@ -4,6 +4,13 @@
              xmlns:local="clr-namespace:dockus"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
-    </Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Assets/Icons/settings.xaml" />
+                <ResourceDictionary Source="/Assets/Icons/SystemTray.xaml"/>
+                <ResourceDictionary Source="/Assets/Icons/Notification.xaml"/>
+                <ResourceDictionary Source="/Assets/Icons/Battery.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>    
 </Application>
