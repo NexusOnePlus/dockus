@@ -60,7 +60,23 @@
         </Style>
 
 
-
+        <Style TargetType="ToolTip">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToolTip">
+                        <Border Background="#CC1E1E1E"
+                        CornerRadius="6"
+                        BorderBrush="Gray"
+                        BorderThickness="1"
+                        Padding="8">
+                            <ContentPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
 
         <Style TargetType="ContextMenu">
@@ -81,11 +97,8 @@
                 </Setter.Value>
             </Setter>
         </Style>
-
-
-
         
-
+        
         <converters:ColorToBrushConverter x:Key="ColorToBrushConverter"/>
         <converters:MultiBoolToVisibilityConverter x:Key="MultiBoolToVisibilityConverter"/>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
@@ -132,7 +145,7 @@
                                        MouseLeftButtonUp="Icon_MouseLeftButtonDown"
                                        VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <Image.ToolTip>
-                                        <ToolTip Content="{Binding Title}" />
+                                        <ToolTip  Content="{Binding Title}" />
                                     </Image.ToolTip>
                                 </Image>
                             </Border>

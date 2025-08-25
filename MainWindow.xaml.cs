@@ -138,14 +138,15 @@ public partial class MainWindow : Window, IDropTarget
         BatteryPercentText.Text = $"{percent}%";
 
         if (BatteryIconControl.Content is Viewbox vb &&
-         vb.Child is Canvas canvas)
+        vb.Child is Canvas rootCanvas)
         {
-            var body = canvas.Children.OfType<Rectangle>().FirstOrDefault();
-            if (body != null)
+            var inner = rootCanvas.Children.OfType<Canvas>().FirstOrDefault();
+            var body = inner?.Children.OfType<Rectangle>()
+                                      .FirstOrDefault(r => r.Name == "Battery_body"); if (body != null)
             {
                 if (charging)
                 {
-                    body.Fill = Brushes.Yellow;
+                    body.Fill = Brushes.Blue;
                 }
                 else if (percent > 50)
                 {
