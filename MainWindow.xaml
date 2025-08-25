@@ -11,7 +11,7 @@
         Background="Transparent"
         AllowsTransparency="True"
         Title="Dockus" 
-        Height="75"
+        Height="80"
         SizeToContent="WidthAndHeight"
         ResizeMode="NoResize"
         WindowStartupLocation="Manual"
@@ -35,7 +35,7 @@
     <Border x:Name="MainBorder" BorderBrush="#FF4A4A4A" BorderThickness="1" CornerRadius="24" Padding="15,5"
             Background="{Binding Source={x:Static core:AppSettings.Current}, Path=DockBackground, Converter={StaticResource ColorToBrushConverter}}"
             >
-        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center">
+        <ScrollViewer Margin="0,4,0,0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center">
             <StackPanel Orientation="Horizontal">
 
                 <ItemsControl ItemsSource="{Binding PinnedItems}"
@@ -50,23 +50,32 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Grid Width="56" Height="56">
-                                <Image Width="48" Height="48" Source="{Binding Icon}" Cursor="Hand"
+                                
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <Border Width="56" Height="56" Background="#AA292929" CornerRadius="10" Margin="3,0">
+                                    <Border.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Anclar a la barra" Click="Pin_Click" Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                            <MenuItem Header="Desanclar de la barra" Click="Unpin_Click" Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                        </ContextMenu>
+                                    </Border.ContextMenu>
+                                    <Image Width="42" Height="42" Source="{Binding Icon}" Cursor="Hand"
                                        MouseLeftButtonUp="Icon_MouseLeftButtonDown"
                                        VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <Image.ToolTip>
                                         <ToolTip Content="{Binding Title}" />
                                     </Image.ToolTip>
-                                    <Image.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem Header="Anclar a la barra" Click="Pin_Click" Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                                            <MenuItem Header="Desanclar de la barra" Click="Unpin_Click" Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                        </ContextMenu>
-                                    </Image.ContextMenu>
                                 </Image>
-                                <Rectangle Width="24" Height="3" 
+                            </Border>
+                                <Rectangle 
+                                    Grid.Row="1"
+                                    Width="12" Height="3" 
                                            VerticalAlignment="Bottom" HorizontalAlignment="Center" 
-                                           Margin="0,0,2,2" 
+                                           Margin="2,2,2,2" 
                                            RadiusX="2" RadiusY="2">
                                     <Rectangle.Fill>
                                         <Binding Path="IsRunning" Converter="{StaticResource BoolToBrushConverter}" />
@@ -95,23 +104,32 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <Grid Width="56" Height="56">
-                                <Image Width="48" Height="48" Source="{Binding Icon}" Cursor="Hand"
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/>
+                                    <RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <Border Width="56" Height="56" Background="#AA292929" CornerRadius="10" Margin="3,0">
+                                    <Border.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Anclar a la barra" Click="Pin_Click" Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                            <MenuItem Header="Desanclar de la barra" Click="Unpin_Click" Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                        </ContextMenu>
+                                    </Border.ContextMenu>
+
+                                    <Image Width="42" Height="42" Source="{Binding Icon}" Cursor="Hand"
                                        MouseLeftButtonDown="Icon_MouseLeftButtonDown"
                                        VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <Image.ToolTip>
                                         <ToolTip Content="{Binding Title}" />
                                     </Image.ToolTip>
-                                    <Image.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem Header="Anclar a la barra" Click="Pin_Click" Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                                            <MenuItem Header="Desanclar de la barra" Click="Unpin_Click" Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                        </ContextMenu>
-                                    </Image.ContextMenu>
                                 </Image>
-                                <Rectangle Width="24" Height="3" 
+                                </Border>
+                                <Rectangle 
+                                    Grid.Row="1"
+                                    Width="12" Height="3" 
                                            VerticalAlignment="Bottom" HorizontalAlignment="Center" 
-                                           Margin="0,0,2,2"
+                                           Margin="2,2,2,2"
                                            RadiusX="2" RadiusY="2">
                                     <Rectangle.Fill>
                                         <Binding Path="IsRunning" Converter="{StaticResource BoolToBrushConverter}" />
@@ -144,7 +162,7 @@
                     </Grid.ColumnDefinitions>
                     <Border
                             x:Name="Notifications"
-                            Padding="2"
+                            Padding="3"
                             Grid.Row="0"
                             Grid.Column="0"
                             BorderBrush="DarkGray"
@@ -161,7 +179,7 @@
                         <Border
                             Cursor="Hand"
                             x:Name="Configuration"
-                        Padding="2"
+                        Padding="3"
                         Grid.Row="0"
                         Grid.Column="1"
                         BorderBrush="DarkGray"
@@ -178,7 +196,7 @@
                     <Border
                         x:Name="System_Tray"
                         Grid.Row="0"
-                        Padding="2"
+                        Padding="3"
                         Grid.Column="2"
                         BorderBrush="DarkGray"
                         Height="18"
