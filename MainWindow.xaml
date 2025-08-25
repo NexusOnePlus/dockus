@@ -25,6 +25,67 @@
         >
 
     <Window.Resources>
+        <Style TargetType="MenuItem">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="Bd"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="4"
+                        Padding="8,4"
+                        SnapsToDevicePixels="True">
+                            <ContentPresenter
+                        ContentSource="Header"
+                        RecognizesAccessKey="True"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Margin="4,0,4,0"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#333"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#777"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#888"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+
+
+
+
+        <Style TargetType="ContextMenu">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="#CC1E1E1E"
+                            CornerRadius="6"
+                            BorderBrush="Gray"
+                            BorderThickness="1"
+                            Padding="4"
+                                >
+                            <StackPanel IsItemsHost="True"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+
+
+        
+
         <converters:ColorToBrushConverter x:Key="ColorToBrushConverter"/>
         <converters:MultiBoolToVisibilityConverter x:Key="MultiBoolToVisibilityConverter"/>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
@@ -59,8 +120,12 @@
                                 <Border Width="56" Height="56" Background="#AA292929" CornerRadius="10" Margin="3,0">
                                     <Border.ContextMenu>
                                         <ContextMenu>
-                                            <MenuItem Header="Anclar a la barra" Click="Pin_Click" Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                                            <MenuItem Header="Desanclar de la barra" Click="Unpin_Click" Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            <MenuItem 
+                                                Foreground="White"
+                                                Header="Anclar a la barra" Click="Pin_Click" Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                            <MenuItem
+                                                Foreground="White"
+                                                Header="Desanclar de la barra" Click="Unpin_Click" Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                         </ContextMenu>
                                     </Border.ContextMenu>
                                     <Image Width="42" Height="42" Source="{Binding Icon}" Cursor="Hand"
@@ -112,8 +177,13 @@
                                 <Border Width="56" Height="56" Background="#AA292929" CornerRadius="10" Margin="3,0">
                                     <Border.ContextMenu>
                                         <ContextMenu>
-                                            <MenuItem Header="Anclar a la barra" Click="Pin_Click" Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                                            <MenuItem Header="Desanclar de la barra" Click="Unpin_Click" Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            <MenuItem
+                                                Foreground="White"
+                                                Header="Anclar a la barra" Click="Pin_Click" Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                            <MenuItem 
+                                                Foreground="White"
+
+                                                Header="Desanclar de la barra" Click="Unpin_Click" Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                         </ContextMenu>
                                     </Border.ContextMenu>
 
