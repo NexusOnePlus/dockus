@@ -7,6 +7,7 @@
         xmlns:core="clr-namespace:dockus.Core.Models"
         xmlns:converters="clr-namespace:dockus.Core.Converters"
         mc:Ignorable="d"
+        Background="#191919"
         Title="SettingsWindow" Height="450" Width="800">
     <Window.Resources>
         <converters:ColorEqualityConverter x:Key="ColorEqualityConverter"/>
@@ -14,20 +15,45 @@
         <Color x:Key="LightColor">#CCEEEEEE</Color>
         <Color x:Key="TransparentColor">#01000000</Color>
     </Window.Resources>
+    
     <StackPanel Margin="15">
-        <TextBlock Text="Dock Background" FontWeight="Bold" Margin="0,0,0,5"/>
-        <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
-            <RadioButton Content="Dark" GroupName="BgColor" Margin="5"
+        <Border Background="#252525" CornerRadius="20">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+                <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center"  Margin="10">
+                    <TextBlock  HorizontalAlignment="Left"  VerticalAlignment="Center" Foreground="#dadada"
+   Text="Dockus Update" FontWeight="Bold"  FontSize="14"/>
+                    <TextBlock  HorizontalAlignment="Left"  VerticalAlignment="Center" Foreground="Gray"
+   Text="{Binding Source={x:Static core:AppSettings.Current}, Path=AppVersion}" FontWeight="Bold"  FontSize="14"/>
+                </StackPanel>
+
+                <Border Margin="20,10" Grid.Column="1" Cursor="Hand" Background="#3b3b3b" CornerRadius="10" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="5,10" >
+                <TextBlock Foreground="White" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" Text=" Check for Updates" ></TextBlock>
+            </Border>
+        </Grid>
+        </Border>
+        <Separator Margin="10"  />
+        <Border Background="#252525" CornerRadius="20" Padding="10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition/>
+                    <RowDefinition/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Dock Background" FontWeight="Bold" Margin="0,0,0,5" Foreground="#dadada"/>
+        <StackPanel  Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,0">
+            <RadioButton Content="Dark" GroupName="BgColor" Margin="5" Foreground="White"
                          IsChecked="{Binding Source={x:Static core:AppSettings.Current}, Path=DockBackground, Converter={StaticResource ColorEqualityConverter}, ConverterParameter={StaticResource DarkColor}}"/>
-            <RadioButton Content="Light" GroupName="BgColor" Margin="5"
+            <RadioButton Content="Light" GroupName="BgColor" Margin="5" Foreground="White"
                          IsChecked="{Binding Source={x:Static core:AppSettings.Current}, Path=DockBackground, Converter={StaticResource ColorEqualityConverter}, ConverterParameter={StaticResource LightColor}}"/>
-            <RadioButton Content="Transparent" GroupName="BgColor" Margin="5"
+            <RadioButton Content="Transparent" GroupName="BgColor" Margin="5" Foreground="White"
                          IsChecked="{Binding Source={x:Static core:AppSettings.Current}, Path=DockBackground, Converter={StaticResource ColorEqualityConverter}, ConverterParameter={StaticResource TransparentColor}}"/>
         </StackPanel>
-
-        <Separator/>
-
-        <TextBlock Margin="0,20,0,0" HorizontalAlignment="Center" Foreground="Gray"
-                   Text="{Binding Source={x:Static core:AppSettings.Current}, Path=AppVersion}"/>
+            </Grid>
+        </Border>
+        
     </StackPanel>
 </Window>
