@@ -25,6 +25,8 @@
         >
 
     <Window.Resources>
+
+            
         <Style TargetType="MenuItem">
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -106,11 +108,11 @@
         <converters:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
     </Window.Resources>
 
-    <Border x:Name="MainBorder" BorderBrush="#FF4A4A4A" BorderThickness="1" CornerRadius="24" Padding="15,5"
+    <Border x:Name="MainBorder" BorderBrush="#FF4A4A4A" BorderThickness="1" CornerRadius="24" Padding="15,3"
             Background="{Binding Source={x:Static core:AppSettings.Current}, Path=DockBackground, Converter={StaticResource ColorToBrushConverter}}"
             >
-        <ScrollViewer Margin="0,4,0,0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center">
-            <StackPanel Orientation="Horizontal">
+        <ScrollViewer Margin="0,0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" VerticalContentAlignment="Center">
+            <StackPanel Orientation="Horizontal" >
 
                 <ItemsControl ItemsSource="{Binding PinnedItems}"
                               dd:DragDrop.IsDragSource="True"
@@ -124,27 +126,79 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                                
-                            <Grid>
+                            <Grid ClipToBounds="False" >
                                 <Grid.RowDefinitions>
-                                    <RowDefinition/>
-                                    <RowDefinition/>
+                                    <RowDefinition Height="62"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <Border Width="56" Height="56" Background="#AA292929" CornerRadius="10" Margin="3,0">
-                                    <Border.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem 
-                                                Foreground="White"
-                                                Header="Anclar a la barra" Click="Pin_Click" Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                                            <MenuItem
-                                                Foreground="White"
-                                                Header="Desanclar de la barra" Click="Unpin_Click" Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                        </ContextMenu>
-                                    </Border.ContextMenu>
-                                    <Image Width="42" Height="42" Source="{Binding Icon}" Cursor="Hand"
+                                <Border
+                                    MouseRightButtonUp="IconBlock_MouseRightButtonDown"
+                                    VerticalAlignment="Center" Name="IconBlock" Width="52" Height="52" Background="#AA292929" CornerRadius="10" Margin="3,0">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Trigger.EnterActions>
+                                                        <BeginStoryboard>
+                                                            <Storyboard>
+                                                                <DoubleAnimation Storyboard.TargetProperty="Width" To="60" Duration="0:0:0.3" />
+                                                                <DoubleAnimation Storyboard.TargetProperty="Height" To="60" Duration="0:0:0.3" />
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </Trigger.EnterActions>
+
+                                                    <Trigger.ExitActions>
+                                                        <BeginStoryboard>
+                                                            <Storyboard>
+                                                                <DoubleAnimation Storyboard.TargetProperty="Width" To="52" Duration="0:0:0.3">
+                                                                    <DoubleAnimation.EasingFunction>
+                                                                        <CircleEase/>
+                                                                    </DoubleAnimation.EasingFunction>
+                                                                </DoubleAnimation>
+                                                                <DoubleAnimation Storyboard.TargetProperty="Height" To="52" Duration="0:0:0.3">
+                                                                        <DoubleAnimation.EasingFunction>
+                                                                            <CircleEase/>
+                                                                        </DoubleAnimation.EasingFunction>
+                                                                    </DoubleAnimation>
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </Trigger.ExitActions>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <Image Width="36" Height="36" Source="{Binding Icon}" Cursor="Hand"
                                        MouseLeftButtonUp="Icon_MouseLeftButtonDown"
                                        VerticalAlignment="Center" HorizontalAlignment="Center">
-                                    <Image.ToolTip>
+                                        <Image.Style>
+                                            <Style TargetType="Image">
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Trigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Width"
+                                                 To="44" Duration="0:0:0.3"/>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Height"
+                                                 To="44" Duration="0:0:0.3"/>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </Trigger.EnterActions>
+                                                        <Trigger.ExitActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Width"
+                                                 To="36" Duration="0:0:0.3"/>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Height"
+                                                 To="36" Duration="0:0:0.3"/>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </Trigger.ExitActions>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Image.Style>
+                                        <Image.ToolTip>
                                         <ToolTip  Content="{Binding Title}" />
                                     </Image.ToolTip>
                                 </Image>
@@ -152,14 +206,15 @@
                                 <Rectangle 
                                     Grid.Row="1"
                                     Width="12" Height="3" 
-                                           VerticalAlignment="Bottom" HorizontalAlignment="Center" 
-                                           Margin="2,2,2,2" 
+                                           VerticalAlignment="Top" HorizontalAlignment="Center" 
+                                           Margin="2,0" 
                                            RadiusX="2" RadiusY="2">
                                     <Rectangle.Fill>
                                         <Binding Path="IsRunning" Converter="{StaticResource BoolToBrushConverter}" />
                                     </Rectangle.Fill>
                                 </Rectangle>
                             </Grid>
+                            
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
@@ -184,26 +239,77 @@
                         <DataTemplate>
                             <Grid>
                                 <Grid.RowDefinitions>
-                                    <RowDefinition/>
-                                    <RowDefinition/>
+                                    <RowDefinition Height="62"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
-                                <Border Width="56" Height="56" Background="#AA292929" CornerRadius="10" Margin="3,0">
-                                    <Border.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem
-                                                Foreground="White"
-                                                Header="Anclar a la barra" Click="Pin_Click" Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                                            <MenuItem 
-                                                Foreground="White"
+                                <Border 
+                                    MouseRightButtonUp="IconBlock_MouseRightButtonDown"
+                                    VerticalAlignment="Center" Width="52" Height="52" Background="#AA292929" CornerRadius="10" Margin="3,0">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Trigger.EnterActions>
+                                                        <BeginStoryboard>
+                                                            <Storyboard>
+                                                                <DoubleAnimation Storyboard.TargetProperty="Width" To="60" Duration="0:0:0.3" />
+                                                                <DoubleAnimation Storyboard.TargetProperty="Height" To="60" Duration="0:0:0.3" />
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </Trigger.EnterActions>
 
-                                                Header="Desanclar de la barra" Click="Unpin_Click" Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                        </ContextMenu>
-                                    </Border.ContextMenu>
-
-                                    <Image Width="42" Height="42" Source="{Binding Icon}" Cursor="Hand"
+                                                    <Trigger.ExitActions>
+                                                        <BeginStoryboard>
+                                                            <Storyboard>
+                                                                <DoubleAnimation Storyboard.TargetProperty="Width" To="52" Duration="0:0:0.3">
+                                                                    <DoubleAnimation.EasingFunction>
+                                                                        <CircleEase/>
+                                                                    </DoubleAnimation.EasingFunction>
+                                                                </DoubleAnimation>
+                                                                <DoubleAnimation Storyboard.TargetProperty="Height" To="52" Duration="0:0:0.3">
+                                                                    <DoubleAnimation.EasingFunction>
+                                                                        <CircleEase/>
+                                                                    </DoubleAnimation.EasingFunction>
+                                                                </DoubleAnimation>
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </Trigger.ExitActions>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <Image Width="36" Height="36" Source="{Binding Icon}" Cursor="Hand"
                                        MouseLeftButtonDown="Icon_MouseLeftButtonDown"
                                        VerticalAlignment="Center" HorizontalAlignment="Center">
-                                    <Image.ToolTip>
+                                        <Image.Style>
+                                            <Style TargetType="Image">
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Trigger.EnterActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Width"
+          To="44" Duration="0:0:0.3"/>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Height"
+          To="44" Duration="0:0:0.3"/>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </Trigger.EnterActions>
+                                                        <Trigger.ExitActions>
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Width"
+          To="36" Duration="0:0:0.3"/>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Height"
+          To="36" Duration="0:0:0.3"/>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </Trigger.ExitActions>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Image.Style>
+                                        <Image.ToolTip>
                                         <ToolTip Content="{Binding Title}" />
                                     </Image.ToolTip>
                                 </Image>
@@ -211,8 +317,8 @@
                                 <Rectangle 
                                     Grid.Row="1"
                                     Width="12" Height="3" 
-                                           VerticalAlignment="Bottom" HorizontalAlignment="Center" 
-                                           Margin="2,2,2,2"
+                                           VerticalAlignment="Top" HorizontalAlignment="Center" 
+                                           Margin="2,0"
                                            RadiusX="2" RadiusY="2">
                                     <Rectangle.Fill>
                                         <Binding Path="IsRunning" Converter="{StaticResource BoolToBrushConverter}" />
@@ -355,7 +461,30 @@
                         </StackPanel>
                     </Border>
                 </Popup>
+                <Popup x:Name="CustomMenu"
+             PlacementTarget="{Binding ElementName=IconBlock}"
+             Placement="Top"
+             VerticalOffset="-10"
+             StaysOpen="False"
+             HorizontalOffset = "-10"
+             AllowsTransparency="True"
+             PopupAnimation="Slide">
 
+                    <Border Background="#CC1E1E1E"               BorderThickness="1"
+           BorderBrush="Gray"
+ CornerRadius="6" Padding="8">
+                        <StackPanel>
+                            <MenuItem Foreground="White"
+                            Header="Anclar a la barra"
+                            Click="Pin_Click"
+                            Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                            <MenuItem Foreground="White"
+                            Header="Desanclar de la barra"
+                            Click="Unpin_Click"
+                            Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        </StackPanel>
+                    </Border>
+                </Popup>
             </StackPanel>
         </ScrollViewer>
     </Border>

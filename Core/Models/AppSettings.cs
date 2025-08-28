@@ -8,7 +8,7 @@ namespace dockus.Core.Models;
 
 public class AppSettings : INotifyPropertyChanged
 {
-    private static AppSettings? _instance;
+    //private static AppSettings? _instance;
     public static AppSettings Current { get; } = new PersistenceService().LoadSettings();
 
     public event PropertyChangedEventHandler? PropertyChanged;
