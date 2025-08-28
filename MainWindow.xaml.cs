@@ -45,6 +45,11 @@ public partial class MainWindow : Window, IDropTarget
     public MainWindow()
     {
         InitializeComponent();
+
+        _isBarVisible = false;
+        HideTimer_Tick(null, EventArgs.Empty);
+
+
         PinnedItems = new ObservableCollection<WindowItem>();
         ActiveUnpinnedItems = new ObservableCollection<WindowItem>();
         this.DataContext = this;
@@ -503,7 +508,6 @@ public partial class MainWindow : Window, IDropTarget
 
         var fgClassSb = new StringBuilder(256);
         NativeMethods.GetClassName(foregroundHWnd, fgClassSb, fgClassSb.Capacity);
-        Debug.WriteLine($"[LOGIC] Foreground HWND: {foregroundHWnd}, Class: '{fgClassSb}'");
 
         if (IsWindowFromDesktopOrShell(foregroundHWnd))
         {
