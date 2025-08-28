@@ -463,14 +463,14 @@ public partial class MainWindow : Window, IDropTarget
 
         var classNameBuilder = new StringBuilder(256);
         NativeMethods.GetClassName(hWndAtPoint, classNameBuilder, classNameBuilder.Capacity);
-        /*
+        
         Debug.WriteLine($"[LOG] IsWindowBehindDock Check:");
         Debug.WriteLine($"  -> HWND Found: {hWndAtPoint}");
         Debug.WriteLine($"  -> Class Name: '{classNameBuilder}'");
         Debug.WriteLine($"  -> Is Visible? {isVisible}");
         Debug.WriteLine($"  -> Is App Window (Taskbar)? {isAppWindow}");
         Debug.WriteLine($"  -> FINAL DECISION: A REAL app window is behind the dock = {isRealAppWindow}");
-        */
+        
         return isRealAppWindow;
     }
 
@@ -500,13 +500,14 @@ public partial class MainWindow : Window, IDropTarget
         IntPtr foregroundHWnd = NativeMethods.GetForegroundWindow();
         bool shouldHide = false;
 
-        IntPtr progman = NativeMethods.FindWindow("Progman", String.Empty);
-        IntPtr workerw = NativeMethods.FindWindow("WorkerW", String.Empty);
 
-        if (foregroundHWnd == progman || foregroundHWnd == workerw)
+        var fgClassSb = new StringBuilder(256);
+        NativeMethods.GetClassName(foregroundHWnd, fgClassSb, fgClassSb.Capacity);
+        Debug.WriteLine($"[LOGIC] Foreground HWND: {foregroundHWnd}, Class: '{fgClassSb}'");
+
+        if (IsWindowFromDesktopOrShell(foregroundHWnd))
         {
             shouldHide = false;
-            // Debug.WriteLine($"[LOGIC] UpdateDockVisibility: Foreground is the Desktop Shell ({foregroundHWnd}). Showing dock.");
         }
         else if (foregroundHWnd != IntPtr.Zero && foregroundHWnd != m_hWnd)
         {
@@ -536,7 +537,7 @@ public partial class MainWindow : Window, IDropTarget
             }
         }
 
-        // Debug.WriteLine($"[LOGIC] UpdateDockVisibility: Foreground HWND is {foregroundHWnd}. Intersects = {shouldHide}");
+        Debug.WriteLine($"[LOGIC] UpdateDockVisibility: Foreground HWND is {foregroundHWnd}. Intersects = {shouldHide}");
 
         double targetTop = shouldHide ? _hiddenTop : _shownTop;
 
@@ -549,6 +550,47 @@ public partial class MainWindow : Window, IDropTarget
             AnimateDock(targetTop);
         }
     }
+
+
+    private bool IsWindowFromDesktopOrShell(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero) return false;
+
+        IntPtr progman = NativeMethods.FindWindow("Progman", string.Empty);
+        IntPtr workerw = NativeMethods.FindWindow("WorkerW", string.Empty);
+        IntPtr shellWindow = NativeMethods.GetShellWindow();
+        IntPtr desktopWindow = NativeMethods.GetDesktopWindow();
+
+        if (hwnd == progman || hwnd == workerw || hwnd == shellWindow || hwnd == desktopWindow)
+            return true;
+
+        var classNameSb = new StringBuilder(256);
+        IntPtr cur = hwnd;
+        while (cur != IntPtr.Zero)
+        {
+            NativeMethods.GetClassName(cur, classNameSb, classNameSb.Capacity);
+            var cls = classNameSb.ToString();
+
+            if (string.Equals(cls, "Progman", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(cls, "WorkerW", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(cls, "SHELLDLL_DefView", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(cls, "SysListView32", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(cls, "Shell_TrayWnd", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (cur == shellWindow || cur == desktopWindow)
+                return true;
+
+            cur = NativeMethods.GetParent(cur);
+            classNameSb.Clear();
+        }
+
+        return false;
+    }
+
+
 
     private void Exit_Click(object sender, RoutedEventArgs e)
     {
