@@ -63,6 +63,9 @@
 
 
         <Style TargetType="ToolTip">
+            <Setter Property="Placement" Value="Top"/>
+            <Setter Property="VerticalOffset" Value="-15"/>
+            <Setter Property="HorizontalOffset" Value="-8"/>
             <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Template">
