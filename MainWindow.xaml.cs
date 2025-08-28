@@ -46,10 +46,6 @@ public partial class MainWindow : Window, IDropTarget
     {
         InitializeComponent();
 
-        _isBarVisible = false;
-        HideTimer_Tick(null, EventArgs.Empty);
-
-
         PinnedItems = new ObservableCollection<WindowItem>();
         ActiveUnpinnedItems = new ObservableCollection<WindowItem>();
         this.DataContext = this;
@@ -100,6 +96,7 @@ public partial class MainWindow : Window, IDropTarget
             IntPtr.Zero, _winEventDelegate, 0, 0, NativeMethods.WINEVENT_OUTOFCONTEXT);
 
         UpdateDockVisibility(true);
+        _hideTimer.Start();
     }
 
     private void PositionWindow()
@@ -146,8 +143,7 @@ public partial class MainWindow : Window, IDropTarget
         vb.Child is Canvas rootCanvas)
         {
             var inner = rootCanvas.Children.OfType<Canvas>().FirstOrDefault();
-            var body = inner?.Children.OfType<Rectangle>()
-                                      .FirstOrDefault(r => r.Name == "Battery_body"); if (body != null)
+            var body = inner?.Children.OfType<Rectangle>().FirstOrDefault(r => r.Name == "Battery_body"); if (body != null)
             {
                 if (charging)
                 {
@@ -233,7 +229,7 @@ public partial class MainWindow : Window, IDropTarget
 
     #region Taskbar and Settings
 
-    private bool _isBarVisible = true;
+    private bool _isBarVisible = false;
 
     private void OpenSettings_Click(object sender, RoutedEventArgs e)
     {

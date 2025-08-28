@@ -245,8 +245,8 @@
                             <ContextMenu.Resources>
                                 <Style TargetType="MenuItem" BasedOn="{StaticResource AppMenuItemStyle}" />
                             </ContextMenu.Resources>
-                            <MenuItem Header="Ocultar barra" Click="ToggleBar_Click"/>
-                            <MenuItem Header="Configuración" Click="OpenSettings_Click"/>
+                            <MenuItem Header="Show Taskbar" Click="ToggleBar_Click"/>
+                            <MenuItem Header="Configuration" Click="OpenSettings_Click"/>
                             <MenuItem Header="Close" Click="Exit_Click"/>
                         </ContextMenu>
                     </Border.ContextMenu>
@@ -358,8 +358,8 @@
                             <ContextMenu.Resources>
                                 <Style TargetType="MenuItem" BasedOn="{StaticResource AppMenuItemStyle}" />
                             </ContextMenu.Resources>
-                            <MenuItem Header="Ocultar barra" Click="ToggleBar_Click"/>
-                            <MenuItem Header="Configuración" Click="OpenSettings_Click"/>
+                            <MenuItem Header="Show Taskbar" Click="ToggleBar_Click"/>
+                            <MenuItem Header="Configuration" Click="OpenSettings_Click"/>
                             <MenuItem Header="Close" Click="Exit_Click"/>
                         </ContextMenu>
                     </Border.ContextMenu>
