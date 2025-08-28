@@ -53,10 +53,10 @@ jobs:
 
     - name: Create Velopack Release
       run: |
-        vpk pack `
-          -u dockus `
-          -v ${{ github.event.inputs.base_version }}.${{ github.run_number }} `
-          -p publish `
+        vpk pack \
+          -u dockus \
+          -v ${{ github.event.inputs.base_version }}.${{ github.run_number }} \
+          -p publish \
           -e dockus.exe
       shell: bash
       
