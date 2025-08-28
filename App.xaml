@@ -10,6 +10,7 @@
                 <ResourceDictionary Source="/Assets/Icons/SystemTray.xaml"/>
                 <ResourceDictionary Source="/Assets/Icons/Notification.xaml"/>
                 <ResourceDictionary Source="/Assets/Icons/Battery.xaml"/>
+                <ResourceDictionary Source="Dock/Resources/Styles.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>    

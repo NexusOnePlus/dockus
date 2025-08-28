@@ -1,6 +1,7 @@
 ﻿using dockus.Core.Interop;
 using dockus.Core.Models;
 using dockus.Core.Services;
+using dockus.Dock;
 using GongSolutions.Wpf.DragDrop;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -22,7 +23,6 @@ public partial class MainWindow : Window, IDropTarget
 {
     private IntPtr m_hWnd = IntPtr.Zero;
     private readonly DispatcherTimer _updateTimer;
-    private readonly DispatcherTimer _hideTimer;
     private readonly DispatcherTimer _dockHideDelayTimer;
     private readonly DispatcherTimer _timer;
     private bool _isInteractionPending = false;
@@ -38,7 +38,7 @@ public partial class MainWindow : Window, IDropTarget
     private readonly PersistenceService _persistenceService = new();
     private readonly WindowService _windowService = new();
     private readonly AppLauncherService _appLauncherService = new();
-
+    private readonly TaskbarManager _taskbarManager = new();
     public ObservableCollection<WindowItem> PinnedItems { get; set; }
     public ObservableCollection<WindowItem> ActiveUnpinnedItems { get; set; }
 
@@ -49,9 +49,6 @@ public partial class MainWindow : Window, IDropTarget
         PinnedItems = new ObservableCollection<WindowItem>();
         ActiveUnpinnedItems = new ObservableCollection<WindowItem>();
         this.DataContext = this;
-
-        _hideTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
-        _hideTimer.Tick += HideTimer_Tick;
 
         _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _updateTimer.Tick += UpdateOpenWindows;
@@ -96,7 +93,6 @@ public partial class MainWindow : Window, IDropTarget
             IntPtr.Zero, _winEventDelegate, 0, 0, NativeMethods.WINEVENT_OUTOFCONTEXT);
 
         UpdateDockVisibility(true);
-        _hideTimer.Start();
     }
 
     private void PositionWindow()
@@ -117,7 +113,7 @@ public partial class MainWindow : Window, IDropTarget
     {
         NativeMethods.UnhookWinEvent(_winEventHook);
         _persistenceService.SavePinnedApps(PinnedItems);
-        RestoreTaskbar();
+        _taskbarManager.Dispose();
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -229,8 +225,6 @@ public partial class MainWindow : Window, IDropTarget
 
     #region Taskbar and Settings
 
-    private bool _isBarVisible = false;
-
     private void OpenSettings_Click(object sender, RoutedEventArgs e)
     {
         var settingsWindow = new dockus.Settings.SettingsWindow { Owner = this };
@@ -239,66 +233,12 @@ public partial class MainWindow : Window, IDropTarget
 
     private void ToggleBar_Click(object sender, RoutedEventArgs e)
     {
-        if (_isBarVisible)
+        _taskbarManager.Toggle();
+        if (sender is MenuItem menuItem)
         {
-            _hideTimer.Start();
-            _isBarVisible = false;
-            if (sender is MenuItem menuItem) menuItem.Header = "Show Taskbar";
-        }
-        else
-        {
-            _hideTimer.Stop();
-            RestoreTaskbar();
-            _isBarVisible = true;
-            if (sender is MenuItem menuItem) menuItem.Header = "Hide Taskbar";
+            menuItem.Header = _taskbarManager.IsHidden ? "Show Taskbar" : "Hide Taskbar";
         }
     }
-
-    private void HideTimer_Tick(object? sender, EventArgs e)
-    {
-        IntPtr taskbarHwnd = NativeMethods.FindWindow("Shell_TrayWnd", null!);
-        if (taskbarHwnd != IntPtr.Zero)
-        {
-            SetAppBarState(taskbarHwnd, NativeMethods.ABS_AUTOHIDE);
-            NativeMethods.ShowWindow(taskbarHwnd, NativeMethods.SW_HIDE);
-        }
-
-        IntPtr secondaryTaskbarHwnd = NativeMethods.FindWindow("Secondary_TrayWnd", null!);
-        if (secondaryTaskbarHwnd != IntPtr.Zero)
-        {
-            SetAppBarState(secondaryTaskbarHwnd, NativeMethods.ABS_AUTOHIDE);
-            NativeMethods.ShowWindow(secondaryTaskbarHwnd, NativeMethods.SW_HIDE);
-        }
-    }
-
-    private void RestoreTaskbar()
-    {
-        IntPtr taskbarHwnd = NativeMethods.FindWindow("Shell_TrayWnd", null!);
-        if (taskbarHwnd != IntPtr.Zero)
-        {
-            SetAppBarState(taskbarHwnd, NativeMethods.ABS_ALWAYSONTOP);
-            NativeMethods.ShowWindow(taskbarHwnd, NativeMethods.SW_SHOW);
-        }
-
-        IntPtr secondaryTaskbarHwnd = NativeMethods.FindWindow("Secondary_TrayWnd", null!);
-        if (secondaryTaskbarHwnd != IntPtr.Zero)
-        {
-            SetAppBarState(secondaryTaskbarHwnd, NativeMethods.ABS_ALWAYSONTOP);
-            NativeMethods.ShowWindow(secondaryTaskbarHwnd, NativeMethods.SW_SHOW);
-        }
-    }
-
-    private static void SetAppBarState(IntPtr taskbarHwnd, int state)
-    {
-        var abd = new APPBARDATA
-        {
-            cbSize = (uint)Marshal.SizeOf<APPBARDATA>(),
-            hWnd = taskbarHwnd,
-            lParam = (IntPtr)state
-        };
-        NativeMethods.SHAppBarMessage(NativeMethods.ABM_SETSTATE, ref abd);
-    }
-
     #endregion
 
     #region User Interaction
@@ -594,7 +534,7 @@ public partial class MainWindow : Window, IDropTarget
 
     private void Exit_Click(object sender, RoutedEventArgs e)
     {
-        RestoreTaskbar();
+        _taskbarManager.Dispose();
         Application.Current.Shutdown();
     }
 
