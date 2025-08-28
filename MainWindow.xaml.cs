@@ -580,7 +580,6 @@ public partial class MainWindow : Window, IDropTarget
     private void IconBlock_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
         var border = (Border)sender;
-        CustomMenu.DataContext = border.DataContext;
         CustomMenu.PlacementTarget = border;
         CustomMenu.IsOpen = true;
     }

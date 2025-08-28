@@ -25,12 +25,29 @@
         >
 
     <Window.Resources>
+        <Style x:Key="PopupMenuItemStyle" TargetType="MenuItem">
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header" RecognizesAccessKey="True" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
-            
-        <Style TargetType="MenuItem">
+        <Style   x:Key="AppMenuItemStyle" TargetType="MenuItem">
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="MenuItem">
@@ -225,6 +242,9 @@
                 <Border Width="6" Margin="8,16" CornerRadius="2" Background="#262626" BorderThickness="1,0,1,0">
                     <Border.ContextMenu>
                         <ContextMenu>
+                            <ContextMenu.Resources>
+                                <Style TargetType="MenuItem" BasedOn="{StaticResource AppMenuItemStyle}" />
+                            </ContextMenu.Resources>
                             <MenuItem Header="Ocultar barra" Click="ToggleBar_Click"/>
                             <MenuItem Header="Configuración" Click="OpenSettings_Click"/>
                             <MenuItem Header="Close" Click="Exit_Click"/>
@@ -335,6 +355,9 @@
                 <Border Width="6" Margin="8,16" CornerRadius="2" Background="#262626" BorderThickness="1,0,1,0">
                     <Border.ContextMenu>
                         <ContextMenu>
+                            <ContextMenu.Resources>
+                                <Style TargetType="MenuItem" BasedOn="{StaticResource AppMenuItemStyle}" />
+                            </ContextMenu.Resources>
                             <MenuItem Header="Ocultar barra" Click="ToggleBar_Click"/>
                             <MenuItem Header="Configuración" Click="OpenSettings_Click"/>
                             <MenuItem Header="Close" Click="Exit_Click"/>
@@ -465,7 +488,7 @@
                     </Border>
                 </Popup>
                 <Popup x:Name="CustomMenu"
-             PlacementTarget="{Binding ElementName=IconBlock}"
+             DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
              Placement="Top"
              VerticalOffset="-10"
              StaysOpen="False"
@@ -478,10 +501,14 @@
  CornerRadius="6" Padding="8">
                         <StackPanel>
                             <MenuItem Foreground="White"
+                                      Style="{StaticResource PopupMenuItemStyle}"
                             Header="Anclar a la barra"
                             Click="Pin_Click"
                             Visibility="{Binding IsPinned, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                            
+                            
                             <MenuItem Foreground="White"
+                                      Style="{StaticResource PopupMenuItemStyle}"
                             Header="Desanclar de la barra"
                             Click="Unpin_Click"
                             Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
