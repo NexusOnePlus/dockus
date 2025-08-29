@@ -1,0 +1,79 @@
+name: Desktop Installer
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_version:
+        description: 'Base Version'
+        required: true
+        default: '1.0'
+      release_title:
+        description: 'Title Release'
+        required: false
+      release_notes:
+        description: 'Release Notes'
+        required: false
+      prerelease:
+        description: 'pre-release'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  build-pack:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install .NET 9
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 9.0.x
+
+    - name: Publish
+      run: |
+        dotnet publish dockus.csproj `
+          -c Release `
+          --self-contained `
+          -r win-x64 `
+          -o publish
+      shell: powershell
+
+    - name: Install Velopack Tool
+      run: |
+        dotnet tool install -g vpk
+      shell: bash
+
+    - name: Create Velopack Release
+      run: |
+        vpk pack \
+          -u dockus \
+          -v ${{ github.event.inputs.base_version }}.${{ github.run_number }} \
+          -p publish \
+          -e dockus.exe
+      shell: bash
+      
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ github.event.inputs.base_version }}.${{ github.run_number }}
+        name: ${{ github.event.inputs.release_title != '' && github.event.inputs.release_title || format('Release v{0}.{1}', github.event.inputs.base_version, github.run_number) }}
+        body: |
+          ${{ github.event.inputs.release_notes }}
+        files: Releases/*
+        prerelease: ${{ github.event.inputs.prerelease }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Upload publish folder as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: publish-folder
+        path: publish
