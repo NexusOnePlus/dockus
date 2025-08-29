@@ -1,541 +1,51 @@
 ﻿using dockus.Core.Interop;
 using dockus.Core.Models;
-using dockus.Core.Services;
 using dockus.Dock;
+using dockus.Dock.Controls;
 using GongSolutions.Wpf.DragDrop;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Animation;
-using System.Windows.Shapes;
-using System.Windows.Threading;
 
 namespace dockus;
 
 public partial class MainWindow : Window, IDropTarget
 {
-    private IntPtr m_hWnd = IntPtr.Zero;
-    private readonly DispatcherTimer _updateTimer;
-    private readonly DispatcherTimer _dockHideDelayTimer;
-    private readonly DispatcherTimer _timer;
-    private bool _isInteractionPending = false;
-    private const double Y_OFFSET = 60.0; //just in case
+    private IDockManager? _dockManager;
 
-
-
-    private NativeMethods.WinEventDelegate? _winEventDelegate;
-    private IntPtr _winEventHook = IntPtr.Zero;
-
-
-    // Services
-    private readonly PersistenceService _persistenceService = new();
-    private readonly WindowService _windowService = new();
-    private readonly AppLauncherService _appLauncherService = new();
-    private readonly TaskbarManager _taskbarManager = new();
-    public ObservableCollection<WindowItem> PinnedItems { get; set; }
-    public ObservableCollection<WindowItem> ActiveUnpinnedItems { get; set; }
+    public ObservableCollection<WindowItem> PinnedItems => _dockManager?.PinnedItems ?? new ObservableCollection<WindowItem>();
+    public ObservableCollection<WindowItem> ActiveUnpinnedItems => _dockManager?.ActiveUnpinnedItems ?? new ObservableCollection<WindowItem>();
 
     public MainWindow()
     {
         InitializeComponent();
-
-        PinnedItems = new ObservableCollection<WindowItem>();
-        ActiveUnpinnedItems = new ObservableCollection<WindowItem>();
         this.DataContext = this;
-
-        _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
-        _updateTimer.Tick += UpdateOpenWindows;
-
-        _dockHideDelayTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _dockHideDelayTimer.Tick += DockHideDelay_Tick;
-
-        _timer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(30)
-        };
-        _timer.Tick += (s, e) =>
-        {
-            UpdateTime();
-            UpdateBattery();
-        };
-        _timer.Start();
-
-        UpdateTime();
-        UpdateBattery();
-
     }
 
+    #region Window Events
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
-        m_hWnd = new WindowInteropHelper(this).Handle;
-        this.MaxWidth = SystemParameters.WorkArea.Width;
-        // this.Left = (SystemParameters.WorkArea.Width - this.ActualWidth ) / 2;
-        // this.Top = SystemParameters.PrimaryScreenHeight - this.ActualHeight;
+        _dockManager = new DockManager(
+            window: this,
+            systemInfo: SystemInfoControl,
+            mainBorder: MainBorder
+        );
 
-        PositionWindow();
-        this.Top = _hiddenTop;
-
-        LoadPinnedApps();
-
-        _updateTimer.Start();
-        // UpdateOpenWindows(null, EventArgs.Empty);
-
-        _winEventDelegate = new NativeMethods.WinEventDelegate(WinEventProc);
-        _winEventHook = NativeMethods.SetWinEventHook(
-            NativeMethods.EVENT_SYSTEM_FOREGROUND, NativeMethods.EVENT_SYSTEM_MOVESIZEEND,
-            IntPtr.Zero, _winEventDelegate, 0, 0, NativeMethods.WINEVENT_OUTOFCONTEXT);
-
-        UpdateDockVisibility(true);
+        _dockManager.Initialize();
     }
-
-    private void PositionWindow()
-    {
-        if (m_hWnd == IntPtr.Zero || MainBorder == null || this.ActualHeight == 0) return;
-
-        double screenHeight = SystemParameters.PrimaryScreenHeight;
-        double visibleDockHeight = MainBorder.ActualHeight;
-
-        _shownTop = screenHeight - visibleDockHeight - 4;
-        _hiddenTop = screenHeight - TRIGGER_HEIGHT;
-
-        this.Left = (SystemParameters.WorkArea.Width - this.ActualWidth) / 2;
-    }
-
 
     private void Window_Closing(object sender, CancelEventArgs e)
     {
-        NativeMethods.UnhookWinEvent(_winEventHook);
-        _persistenceService.SavePinnedApps(PinnedItems);
-        _taskbarManager.Dispose();
+        _dockManager?.Dispose();
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        // this.Left = (SystemParameters.WorkArea.Width - this.ActualWidth) / 2;
-        PositionWindow();
-    }
-
-    private void UpdateTime()
-    {
-        ClockText.Text = DateTime.Now.ToString("hh:mm tt").ToLower();
-    }
-
-    private void UpdateBattery()
-    {
-        int percent = WindowService.GetBatteryPercent();
-        bool charging = WindowService.IsCharging();
-
-
-        BatteryPercentText.Text = $"{percent}%";
-
-        if (BatteryIconControl.Content is Viewbox vb &&
-        vb.Child is Canvas rootCanvas)
-        {
-            var inner = rootCanvas.Children.OfType<Canvas>().FirstOrDefault();
-            var body = inner?.Children.OfType<Rectangle>().FirstOrDefault(r => r.Name == "Battery_body"); if (body != null)
-            {
-                if (charging)
-                {
-                    body.Fill = Brushes.Blue;
-                }
-                else if (percent > 50)
-                {
-                    body.Fill = Brushes.Green;
-                }
-                else if (percent > 20)
-                {
-                    body.Fill = Brushes.Orange;
-                }
-                else
-                {
-                    body.Fill = Brushes.Red;
-                }
-            }
-        }
-    }
-
-    private void UpdateOpenWindows(object? sender, EventArgs e)
-    {
-        var liveWindows = new List<WindowItem>();
-        var handle = GCHandle.Alloc(liveWindows);
-        try
-        {
-            NativeMethods.EnumDesktopWindows(
-            IntPtr.Zero,
-            delegate (IntPtr hWnd, ref GCHandle lParam) { return _windowService.ListWindows(hWnd, ref lParam, m_hWnd); },
-            ref handle);
-        }
-        finally
-        {
-            if (handle.IsAllocated)
-            {
-                handle.Free();
-            }
-        }
-
-        foreach (var pinnedItem in PinnedItems)
-        {
-            var runningInstance = liveWindows.FirstOrDefault(w => w.Identifier == pinnedItem.Identifier);
-            pinnedItem.IsRunning = runningInstance != null;
-            if (runningInstance != null)
-            {
-                pinnedItem.Hwnd = runningInstance.Hwnd;
-                pinnedItem.Title = runningInstance.Title;
-            }
-        }
-
-        var closedItems = ActiveUnpinnedItems.Where(item => !liveWindows.Any(w => w.Hwnd == item.Hwnd)).ToList();
-        foreach (var item in closedItems)
-        {
-            ActiveUnpinnedItems.Remove(item);
-        }
-
-        foreach (var existingItem in ActiveUnpinnedItems)
-        {
-            var liveData = liveWindows.FirstOrDefault(w => w.Hwnd == existingItem.Hwnd);
-            if (liveData != null)
-            {
-                if (existingItem.Identifier != liveData.Identifier)
-                {
-                    existingItem.Identifier = liveData.Identifier;
-                    existingItem.IdentifierType = liveData.IdentifierType;
-                    existingItem.Icon = liveData.Icon;
-                }
-                existingItem.Title = liveData.Title;
-            }
-        }
-
-        var newItems = liveWindows
-            .Where(w => !PinnedItems.Any(p => p.Identifier == w.Identifier) &&
-                        !ActiveUnpinnedItems.Any(item => item.Hwnd == w.Hwnd))
-            .ToList();
-
-        foreach (var item in newItems)
-        {
-            ActiveUnpinnedItems.Add(item);
-        }
-    }
-
-    #region Taskbar and Settings
-
-    private void OpenSettings_Click(object sender, RoutedEventArgs e)
-    {
-        var settingsWindow = new dockus.Settings.SettingsWindow { Owner = this };
-        settingsWindow.ShowDialog();
-    }
-
-    private void ToggleBar_Click(object sender, RoutedEventArgs e)
-    {
-        _taskbarManager.Toggle();
-        if (sender is MenuItem menuItem)
-        {
-            menuItem.Header = _taskbarManager.IsHidden ? "Show Taskbar" : "Hide Taskbar";
-        }
-    }
-    #endregion
-
-    #region User Interaction
-    private void Icon_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        Debug.WriteLine("[LOG] Icon clicked. Grace period activated.");
-        _isInteractionPending = true;
-        _dockHideDelayTimer.Stop();
-        if (sender is FrameworkElement { DataContext: WindowItem item })
-        {
-            if (item.IsRunning && item.Hwnd != IntPtr.Zero)
-            {
-                NativeMethods.ShowWindow(item.Hwnd, NativeMethods.SW_RESTORE);
-                NativeMethods.SetForegroundWindow(item.Hwnd);
-            }
-            else if (item.IsPinned)
-            {
-                _appLauncherService.LaunchApp(item);
-            }
-        }
-    }
-
-    void IDropTarget.Drop(IDropInfo dropInfo)
-    {
-        GongSolutions.Wpf.DragDrop.DragDrop.DefaultDropHandler.Drop(dropInfo);
-        _persistenceService.SavePinnedApps(PinnedItems);
-    }
-
-    void IDropTarget.DragOver(IDropInfo dropInfo)
-    {
-        if (dropInfo.TargetCollection == PinnedItems && dropInfo.DragInfo.SourceCollection == PinnedItems)
-        {
-            dropInfo.DropTargetAdorner = DropTargetAdorners.Insert;
-            dropInfo.Effects = DragDropEffects.Move;
-        }
-    }
-
-    private void Pin_Click(object sender, RoutedEventArgs e)
-    {
-        if (e.Source is FrameworkElement { DataContext: WindowItem item })
-        {
-            if (string.IsNullOrEmpty(item.Identifier)) return;
-
-            item.IsPinned = true;
-            if (!PinnedItems.Any(p => p.Identifier == item.Identifier))
-            {
-                PinnedItems.Add(item);
-            }
-            ActiveUnpinnedItems.Remove(item);
-            _persistenceService.SavePinnedApps(PinnedItems);
-        }
-    }
-
-    private void Unpin_Click(object sender, RoutedEventArgs e)
-    {
-        if (e.Source is FrameworkElement { DataContext: WindowItem item })
-        {
-            item.IsPinned = false;
-            PinnedItems.Remove(item);
-
-            if (item.IsRunning)
-            {
-                ActiveUnpinnedItems.Add(item);
-            }
-            _persistenceService.SavePinnedApps(PinnedItems);
-        }
-    }
-
-    #endregion
-
-    #region Persistence
-    private void LoadPinnedApps()
-    {
-        var pinnedList = _persistenceService.LoadPinnedApps();
-        PinnedItems.Clear();
-        foreach (var pinnedApp in pinnedList)
-        {
-            var item = new WindowItem
-            {
-                IsPinned = true,
-                Identifier = pinnedApp.Identifier,
-                IdentifierType = pinnedApp.Type,
-                IsRunning = false,
-                Icon = _windowService.GetIconForPinnedApp(pinnedApp, out string? title),
-                Title = title ?? "App"
-            };
-            PinnedItems.Add(item);
-        }
-    }
-    #endregion
-    private const double TRIGGER_HEIGHT = 2.0;
-    private double _hiddenTop;
-    private double _shownTop;
-    private void Window_MouseEnter(object sender, MouseEventArgs e)
-    {
-        Debug.WriteLine("[LOG] Mouse ENTER. Cancelling hide timer.");
-        _dockHideDelayTimer.Stop();
-        AnimateDock(_shownTop);
-    }
-
-    private void Window_MouseLeave(object sender, MouseEventArgs e)
-    {
-        if (_isInteractionPending)
-        {
-            Debug.WriteLine("[LOG] Mouse LEAVE. Grace period active, not hiding.");
-            _isInteractionPending = false;
-            return;
-        }
-        Debug.WriteLine("[LOG] Mouse LEAVE. Starting 4-second hide timer.");
-        _dockHideDelayTimer.Start();
-    }
-
-    private void DockHideDelay_Tick(object? sender, EventArgs e)
-    {
-        _dockHideDelayTimer.Stop();
-        if (!this.IsMouseOver)
-        {
-            UpdateDockVisibility(false);
-        }
-    }
-
-    private void PeekTimer_Tick(object? sender, EventArgs e)
-    {
-        if (this.IsMouseOver || _dockHideDelayTimer.IsEnabled || _isInteractionPending)
-        {
-            return;
-        }
-
-        Debug.WriteLine("[LOG] Peek Timer: Checking for window behind dock...");
-        if (IsWindowBehindDock())
-        {
-            if (this.Top != _hiddenTop) AnimateDock(_hiddenTop);
-        }
-        else
-        {
-            if (this.Top != _shownTop) AnimateDock(_shownTop);
-        }
-    }
-
-    private bool IsWindowBehindDock()
-    {
-        if (m_hWnd == IntPtr.Zero) return true;
-        var source = PresentationSource.FromVisual(this);
-        if (source?.CompositionTarget == null) return true;
-
-        Matrix matrix = source.CompositionTarget.TransformToDevice;
-        var logicalPoint = new Point(this.Left + this.ActualWidth / 2, _shownTop + (MainBorder?.ActualHeight ?? 0) / 2);
-        var physicalPoint = matrix.Transform(logicalPoint);
-        var screenPoint = new NativeMethods.POINT { X = (int)physicalPoint.X, Y = (int)physicalPoint.Y };
-
-        IntPtr hWndAtPoint = NativeMethods.WindowFromPoint(screenPoint);
-
-        if (hWndAtPoint == IntPtr.Zero || hWndAtPoint == m_hWnd || hWndAtPoint == NativeMethods.GetDesktopWindow())
-        {
-            return false;
-        }
-
-        long style = NativeMethods.GetWindowLong(hWndAtPoint, NativeMethods.GWL_EXSTYLE);
-        bool isVisible = NativeMethods.IsWindowVisible(hWndAtPoint);
-
-        bool isAppWindow = (style & NativeMethods.WS_EX_APPWINDOW) == NativeMethods.WS_EX_APPWINDOW;
-        bool isRealAppWindow = isVisible && isAppWindow;
-
-        var classNameBuilder = new StringBuilder(256);
-        NativeMethods.GetClassName(hWndAtPoint, classNameBuilder, classNameBuilder.Capacity);
-        
-        Debug.WriteLine($"[LOG] IsWindowBehindDock Check:");
-        Debug.WriteLine($"  -> HWND Found: {hWndAtPoint}");
-        Debug.WriteLine($"  -> Class Name: '{classNameBuilder}'");
-        Debug.WriteLine($"  -> Is Visible? {isVisible}");
-        Debug.WriteLine($"  -> Is App Window (Taskbar)? {isAppWindow}");
-        Debug.WriteLine($"  -> FINAL DECISION: A REAL app window is behind the dock = {isRealAppWindow}");
-        
-        return isRealAppWindow;
-    }
-
-    private void AnimateDock(double toValue)
-    {
-        if (Math.Abs(this.Top - toValue) < 1) return;
-
-        var animation = new DoubleAnimation
-        {
-            To = toValue,
-            Duration = TimeSpan.FromMilliseconds(500),
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-        };
-        this.BeginAnimation(Window.TopProperty, animation);
-    }
-    void WinEventProc(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
-    {
-        Dispatcher.BeginInvoke(new Action(() => UpdateDockVisibility(false)));
-    }
-    private void UpdateDockVisibility(bool isInitialLoad)
-    {
-        if (this.IsMouseOver || _dockHideDelayTimer.IsEnabled || _isInteractionPending)
-        {
-            return;
-        }
-
-        IntPtr foregroundHWnd = NativeMethods.GetForegroundWindow();
-        bool shouldHide = false;
-
-
-        var fgClassSb = new StringBuilder(256);
-        NativeMethods.GetClassName(foregroundHWnd, fgClassSb, fgClassSb.Capacity);
-
-        if (IsWindowFromDesktopOrShell(foregroundHWnd))
-        {
-            shouldHide = false;
-        }
-        else if (foregroundHWnd != IntPtr.Zero && foregroundHWnd != m_hWnd)
-        {
-            NativeMethods.GetWindowRect(foregroundHWnd, out NativeMethods.RECT windowRect);
-
-            var source = PresentationSource.FromVisual(this);
-            if (source?.CompositionTarget != null)
-            {
-                Matrix matrix = source.CompositionTarget.TransformToDevice;
-
-                var dockLogicalRect = new Rect(this.Left, _shownTop, this.ActualWidth, MainBorder.ActualHeight);
-                Point physicalTopLeft = matrix.Transform(dockLogicalRect.TopLeft);
-                Point physicalBottomRight = matrix.Transform(dockLogicalRect.BottomRight);
-
-                var dockRect = new NativeMethods.RECT
-                {
-                    left = (int)physicalTopLeft.X,
-                    top = (int)physicalTopLeft.Y,
-                    right = (int)physicalBottomRight.X,
-                    bottom = (int)physicalBottomRight.Y
-                };
-
-                if (NativeMethods.IntersectRect(out _, ref windowRect, ref dockRect))
-                {
-                    shouldHide = true;
-                }
-            }
-        }
-
-        Debug.WriteLine($"[LOGIC] UpdateDockVisibility: Foreground HWND is {foregroundHWnd}. Intersects = {shouldHide}");
-
-        double targetTop = shouldHide ? _hiddenTop : _shownTop;
-
-        if (isInitialLoad)
-        {
-            this.Top = targetTop;
-        }
-        else
-        {
-            AnimateDock(targetTop);
-        }
-    }
-
-
-    private bool IsWindowFromDesktopOrShell(IntPtr hwnd)
-    {
-        if (hwnd == IntPtr.Zero) return false;
-
-        IntPtr progman = NativeMethods.FindWindow("Progman", string.Empty);
-        IntPtr workerw = NativeMethods.FindWindow("WorkerW", string.Empty);
-        IntPtr shellWindow = NativeMethods.GetShellWindow();
-        IntPtr desktopWindow = NativeMethods.GetDesktopWindow();
-
-        if (hwnd == progman || hwnd == workerw || hwnd == shellWindow || hwnd == desktopWindow)
-            return true;
-
-        var classNameSb = new StringBuilder(256);
-        IntPtr cur = hwnd;
-        while (cur != IntPtr.Zero)
-        {
-            NativeMethods.GetClassName(cur, classNameSb, classNameSb.Capacity);
-            var cls = classNameSb.ToString();
-
-            if (string.Equals(cls, "Progman", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(cls, "WorkerW", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(cls, "SHELLDLL_DefView", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(cls, "SysListView32", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(cls, "Shell_TrayWnd", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            if (cur == shellWindow || cur == desktopWindow)
-                return true;
-
-            cur = NativeMethods.GetParent(cur);
-            classNameSb.Clear();
-        }
-
-        return false;
-    }
-
-
-
-    private void Exit_Click(object sender, RoutedEventArgs e)
-    {
-        _taskbarManager.Dispose();
-        Application.Current.Shutdown();
+        _dockManager?.OnWindowSizeChanged();
     }
 
     private void Window_SourceInitialized(object sender, EventArgs e)
@@ -544,25 +54,115 @@ public partial class MainWindow : Window, IDropTarget
         IntPtr hwnd = helper.Handle;
 
         IntPtr extendedStyle = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE);
-
         NativeMethods.SetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE,
             new IntPtr(extendedStyle.ToInt64() | NativeMethods.WS_EX_TOOLWINDOW));
     }
+    #endregion
 
-    private void Notifications_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    #region Mouse Events
+    private void Window_MouseEnter(object sender, MouseEventArgs e)
+    {
+        _dockManager?.OnMouseEnter();
+    }
+
+    private void Window_MouseLeave(object sender, MouseEventArgs e)
+    {
+        _dockManager?.OnMouseLeave();
+    }
+    #endregion
+
+    #region Public Methods for UserControls
+    public void Icon_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement element)
+        {
+            if (element.DataContext is WindowItem item)
+            {
+                _dockManager?.OnIconClick(item);
+            }
+        }
+    }
+
+    public void IconBlock_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement element)
+        {
+            CustomMenu.PlacementTarget = element;
+            CustomMenu.IsOpen = true;
+        }
+    }
+
+    public void OpenNotifications()
     {
         Process.Start(new ProcessStartInfo("ms-actioncenter:") { UseShellExecute = true });
     }
 
-    private void System_Tray_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    public void OpenSettings()
     {
-        TrayPopup.IsOpen = !TrayPopup.IsOpen;
+        var settingsWindow = new dockus.Settings.SettingsWindow { Owner = this };
+        settingsWindow.ShowDialog();
     }
 
-    private void IconBlock_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    public void ToggleSystemTrayPopup()
     {
-        var border = (Border)sender;
-        CustomMenu.PlacementTarget = border;
-        CustomMenu.IsOpen = true;
+        SystemInfoControl.SystemTrayPopup.IsOpen = !SystemInfoControl.SystemTrayPopup.IsOpen;
     }
+    #endregion
+
+    #region Icon Interaction - Context Menu
+    private void Pin_Click(object sender, RoutedEventArgs e)
+    {
+        if (e.Source is FrameworkElement { DataContext: WindowItem item })
+        {
+            _dockManager?.PinItem(item);
+        }
+    }
+
+    private void Unpin_Click(object sender, RoutedEventArgs e)
+    {
+        if (e.Source is FrameworkElement { DataContext: WindowItem item })
+        {
+            _dockManager?.UnpinItem(item);
+        }
+    }
+    #endregion
+
+    #region Drag & Drop
+    void IDropTarget.Drop(IDropInfo dropInfo)
+    {
+        GongSolutions.Wpf.DragDrop.DragDrop.DefaultDropHandler.Drop(dropInfo);
+        _dockManager?.SavePinnedApps();
+    }
+
+    void IDropTarget.DragOver(IDropInfo dropInfo)
+    {
+        if (dropInfo.TargetCollection == PinnedItems &&
+            dropInfo.DragInfo.SourceCollection == PinnedItems)
+        {
+            dropInfo.DropTargetAdorner = DropTargetAdorners.Insert;
+            dropInfo.Effects = DragDropEffects.Move;
+        }
+    }
+    #endregion
+
+    #region Menu Actions
+    private void OpenSettings_Click(object sender, RoutedEventArgs e)
+    {
+        OpenSettings();
+    }
+
+    private void ToggleBar_Click(object sender, RoutedEventArgs e)
+    {
+        _dockManager?.ToggleTaskbar();
+        if (sender is MenuItem menuItem)
+        {
+            menuItem.Header = (_dockManager?.IsTaskbarHidden == true) ? "Show Taskbar" : "Hide Taskbar";
+        }
+    }
+
+    private void Exit_Click(object sender, RoutedEventArgs e)
+    {
+        Application.Current.Shutdown();
+    }
+    #endregion
 }
