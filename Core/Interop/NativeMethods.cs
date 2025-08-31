@@ -103,6 +103,11 @@ internal static class NativeMethods
     }
 
     internal const int SW_SHOWMAXIMIZED = 3;
+    internal const int SW_SHOWMINIMIZED = 2;
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsIconic(IntPtr hWnd);
 
     #endregion
 

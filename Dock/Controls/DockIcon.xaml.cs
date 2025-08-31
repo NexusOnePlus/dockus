@@ -11,7 +11,7 @@ public partial class DockIcon : UserControl
         InitializeComponent();
     }
 
-    private void Icon_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void Icon_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         var mainWindow = Window.GetWindow(this) as MainWindow;
         mainWindow?.Icon_MouseLeftButtonDown(this, e);

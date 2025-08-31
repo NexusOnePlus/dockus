@@ -286,7 +286,22 @@ public class DockManager : IDockManager
 
         if (item.IsRunning && item.Hwnd != IntPtr.Zero)
         {
-            NativeMethods.ShowWindow(item.Hwnd, NativeMethods.SW_RESTORE);
+            NativeMethods.WINDOWPLACEMENT placement = new NativeMethods.WINDOWPLACEMENT();
+            placement.length = Marshal.SizeOf(placement);
+            NativeMethods.GetWindowPlacement(item.Hwnd, ref placement);
+
+            if (placement.showCmd == NativeMethods.SW_SHOWMINIMIZED || NativeMethods.IsIconic(item.Hwnd))
+            {
+                NativeMethods.ShowWindow(item.Hwnd, NativeMethods.SW_RESTORE);
+            }
+            else if (placement.showCmd == NativeMethods.SW_SHOWMAXIMIZED)
+            {
+                NativeMethods.ShowWindow(item.Hwnd, NativeMethods.SW_SHOWMAXIMIZED);
+            }
+            else
+            {
+                NativeMethods.ShowWindow(item.Hwnd, NativeMethods.SW_RESTORE);
+            }
             NativeMethods.SetForegroundWindow(item.Hwnd);
         }
         else if (item.IsPinned)
