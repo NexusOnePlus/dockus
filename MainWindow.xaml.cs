@@ -36,6 +36,23 @@ public partial class MainWindow : Window, IDropTarget
         );
 
         _dockManager.Initialize();
+        var taskbarManager = (_dockManager as DockManager)?._taskbarManager;
+        if (taskbarManager != null)
+        {
+            AppSettings.Current.PropertyChanged += (s, args) =>
+            {
+                if (args.PropertyName == nameof(AppSettings.Current.AutoHideWindowsTaskbar))
+                {
+                    if (AppSettings.Current.AutoHideWindowsTaskbar)
+                        taskbarManager.StartAutoHide();
+                    else
+                        taskbarManager.StopAutoHide();
+                }
+            };
+
+            if (AppSettings.Current.AutoHideWindowsTaskbar)
+                taskbarManager.StartAutoHide();
+        }
     }
 
     private void Window_Closing(object sender, CancelEventArgs e)

@@ -83,7 +83,9 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <Border Width="6" 
+                <Border
+                    Visibility="{Binding Path=ShowSystemInfo, Converter={StaticResource BoolToVisibilityConverter}}"
+                        Width="6" 
                         Margin="8,16" 
                         CornerRadius="2" 
                         Background="#262626" 
@@ -100,7 +102,7 @@
                     </Border.ContextMenu>
                 </Border>
 
-                <controls:SystemInfo x:Name="SystemInfoControl" />
+                <controls:SystemInfo x:Name="SystemInfoControl" Visibility="{Binding Path=ShowSystemInfo, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                 <Popup x:Name="CustomMenu"
                        DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"

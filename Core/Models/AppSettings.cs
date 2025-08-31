@@ -9,6 +9,38 @@ namespace dockus.Core.Models;
 public class AppSettings : INotifyPropertyChanged
 {
     //private static AppSettings? _instance;
+
+    private bool _autoHideWindowsTaskbar = false;
+    public bool AutoHideWindowsTaskbar
+    {
+        get => _autoHideWindowsTaskbar;
+        set
+        {
+            if (_autoHideWindowsTaskbar != value)
+            {
+                _autoHideWindowsTaskbar = value;
+                OnPropertyChanged();
+                new PersistenceService().SaveSettings(this);
+            }
+        }
+    }
+
+
+
+    private bool _showSystemInfo = true;
+    public bool ShowSystemInfo
+    {
+        get => _showSystemInfo;
+        set
+        {
+            if (_showSystemInfo != value)
+            {   
+                _showSystemInfo = value;
+                OnPropertyChanged();
+                new PersistenceService().SaveSettings(this);
+            }
+        }
+    }
     public static AppSettings Current { get; } = new PersistenceService().LoadSettings();
 
     public event PropertyChangedEventHandler? PropertyChanged;

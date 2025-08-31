@@ -15,6 +15,7 @@ public partial class SystemInfo : UserControl
     public SystemInfo()
     {
         InitializeComponent();
+        this.DataContext = dockus.Core.Models.AppSettings.Current;
     }
 
     private void Notifications_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)

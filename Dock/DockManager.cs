@@ -34,7 +34,7 @@ public class DockManager : IDockManager
     private readonly PersistenceService _persistenceService;
     private readonly WindowService _windowService;
     private readonly AppLauncherService _appLauncherService;
-    private readonly TaskbarManager _taskbarManager;
+    public TaskbarManager _taskbarManager;
 
     private readonly TextBlock _clockText;
     private readonly TextBlock _batteryPercentText;

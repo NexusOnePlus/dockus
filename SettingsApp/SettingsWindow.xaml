@@ -3,57 +3,200 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:dockus.Settings"
         xmlns:core="clr-namespace:dockus.Core.Models"
         xmlns:converters="clr-namespace:dockus.Core.Converters"
         mc:Ignorable="d"
         Background="#191919"
-        Title="SettingsWindow" Height="450" Width="800">
+        ResizeMode="NoResize"
+        Title="Settings"
+        Height="450" Width="800"
+        Topmost="False"
+        >
+
     <Window.Resources>
         <converters:ColorEqualityConverter x:Key="ColorEqualityConverter"/>
+
         <Color x:Key="DarkColor">#FF000000</Color>
         <Color x:Key="LightColor">#CCEEEEEE</Color>
         <Color x:Key="TransparentColor">#01000000</Color>
+
+        <Style x:Key="ToggleSwitchStyle" TargetType="CheckBox">
+            <Setter Property="Width" Value="50"/>
+            <Setter Property="Height" Value="25"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid>
+                            <Border x:Name="SwitchTrack"
+                                    CornerRadius="12.5"
+                                    Background="#444"
+                                    Width="50" Height="25"/>
+                            <Ellipse x:Name="SwitchThumb"
+                                     Width="20" Height="20"
+                                     Fill="White"
+                                     Margin="3,0,0,0"
+                                     HorizontalAlignment="Left"
+                                     VerticalAlignment="Center"
+                                     RenderTransformOrigin="0.5,0.5"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="SwitchTrack" Property="Background" Value="#3b82f6"/>
+                                <Setter TargetName="SwitchThumb" Property="HorizontalAlignment" Value="Right"/>
+                                <Setter TargetName="SwitchThumb" Property="Margin" Value="0,0,3,0"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="SwitchTrack" Property="Background" Value="#555"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="Border" x:Key="CardStyle">
+            <Setter Property="Background" Value="#252525"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,15"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="10" ShadowDepth="2" Color="#66000000"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
-    
-    <StackPanel Margin="15">
-        <Border  Background="#252525" CornerRadius="20">
-        <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-                <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center"  Margin="10">
-                    <TextBlock  HorizontalAlignment="Left"  VerticalAlignment="Center" Foreground="#dadada"
-   Text="Dockus Update" FontWeight="Bold"  FontSize="14"/>
-                    <TextBlock x:Name="VersionText" HorizontalAlignment="Left"  VerticalAlignment="Center" Foreground="Gray"
-                     FontWeight="Bold"  FontSize="14"/>
-                </StackPanel>
 
-                <Border MouseLeftButtonUp="UpdateButton_Click"   Name="UpdateButton"     Margin="20,10" Grid.Column="1" Cursor="Hand" Background="#3b3b3b" CornerRadius="10" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="5,10" >
-                <TextBlock Name="UpdateButtonText" Foreground="White" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" Text=" Check for Updates" ></TextBlock>
+    <ScrollViewer VerticalScrollBarVisibility="Hidden">
+        <StackPanel Margin="20" Orientation="Vertical">
+
+            <Border Style="{StaticResource CardStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Orientation="Vertical">
+                        <TextBlock Text="Dockus Update"
+                                   Foreground="#dadada"
+                                   FontWeight="Bold"
+                                   FontSize="16"/>
+                        <TextBlock x:Name="VersionText"
+                                   Foreground="Gray"
+                                   FontWeight="SemiBold"
+                                   FontSize="14"/>
+                    </StackPanel>
+
+                    <Border x:Name="UpdateButton"
+                            Grid.Column="1"
+                            Background="#3b3b3b"
+                            CornerRadius="8"
+                            Cursor="Hand"
+                            Padding="15,5"
+                            MouseLeftButtonUp="UpdateButton_Click">
+                        <TextBlock x:Name="UpdateButtonText"
+                                   VerticalAlignment="Center"
+                                   Foreground="White"
+                                   FontWeight="SemiBold"
+                                   Text="Check for Updates"/>
+                    </Border>
+                </Grid>
             </Border>
-        </Grid>
-        </Border>
-        <Separator Margin="10"  />
-        <Border Background="#252525" CornerRadius="20" Padding="10">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition/>
-                    <RowDefinition/>
-                </Grid.RowDefinitions>
 
-                <TextBlock Text="Dock Background" FontWeight="Bold" Margin="0,0,0,5" Foreground="#dadada"/>
-        <StackPanel  Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,0">
-            <RadioButton Content="Dark" GroupName="BgColor" Margin="5" Foreground="White"
-                         IsChecked="{Binding Source={x:Static core:AppSettings.Current}, Path=DockBackground, Converter={StaticResource ColorEqualityConverter}, ConverterParameter={StaticResource DarkColor}}"/>
-            <RadioButton Content="Light" GroupName="BgColor" Margin="5" Foreground="White"
-                         IsChecked="{Binding Source={x:Static core:AppSettings.Current}, Path=DockBackground, Converter={StaticResource ColorEqualityConverter}, ConverterParameter={StaticResource LightColor}}"/>
-            <RadioButton Content="Transparent" GroupName="BgColor" Margin="5" Foreground="White"
-                         IsChecked="{Binding Source={x:Static core:AppSettings.Current}, Path=DockBackground, Converter={StaticResource ColorEqualityConverter}, ConverterParameter={StaticResource TransparentColor}}"/>
+            <Border  Padding="8" Style="{StaticResource CardStyle}"  BorderBrush="#333" BorderThickness="1" CornerRadius="6">
+                <StackPanel>
+                    <TextBlock Text="Changelog"
+                   FontSize="16"
+                   FontWeight="Bold"
+                   Foreground="#dadada"
+                   Margin="0,0,0,8"/>
+
+                    <ScrollViewer Height="120" VerticalScrollBarVisibility="Auto">
+                        <TextBlock x:Name="ChangelogText"
+                       Text="No changelog loaded."
+                       Foreground="Gray"
+                       FontSize="13"
+                       TextWrapping="Wrap"/>
+                    </ScrollViewer>
+                </StackPanel>
+            </Border>
+
+            
+            <Border Style="{StaticResource CardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Dock Background"
+                               FontWeight="Bold"
+                               Foreground="#dadada"
+                               Margin="0,0,0,8"
+                               FontSize="16"/>
+
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left" >
+                        <RadioButton Content="Dark"
+                                     GroupName="BgColor"
+                                     Foreground="White"
+                                     Margin="5,0"
+                                     IsChecked="{Binding Source={x:Static core:AppSettings.Current}, Path=DockBackground,
+                                                         Converter={StaticResource ColorEqualityConverter}, 
+                                                         ConverterParameter={StaticResource DarkColor}}"/>
+                        <RadioButton Content="Light"
+                                     GroupName="BgColor"
+                                     Foreground="White"
+                                     Margin="5,0"
+                                     IsChecked="{Binding Source={x:Static core:AppSettings.Current}, Path=DockBackground,
+                                                         Converter={StaticResource ColorEqualityConverter}, 
+                                                         ConverterParameter={StaticResource LightColor}}"/>
+                        <RadioButton Content="Transparent"
+                                     GroupName="BgColor"
+                                     Foreground="White"
+                                     Margin="5,0"
+                                     IsChecked="{Binding Source={x:Static core:AppSettings.Current}, Path=DockBackground,
+                                                         Converter={StaticResource ColorEqualityConverter}, 
+                                                         ConverterParameter={StaticResource TransparentColor}}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="Show system info bar"
+                               VerticalAlignment="Center"
+                               Foreground="#dadada"
+                               FontSize="14"/>
+
+                    <CheckBox Grid.Column="1"
+                              IsChecked="{Binding ShowSystemInfo, Mode=TwoWay}"
+                              Style="{StaticResource ToggleSwitchStyle}" />
+                </Grid>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="Auto-hide Windows taskbar"
+                               VerticalAlignment="Center"
+                               Foreground="#dadada"
+                               FontSize="14"/>
+
+                    <CheckBox Grid.Column="1"
+                              IsChecked="{Binding AutoHideWindowsTaskbar, Mode=TwoWay}"
+                              Style="{StaticResource ToggleSwitchStyle}" />
+                </Grid>
+            </Border>
         </StackPanel>
-            </Grid>
-        </Border>
-        
-    </StackPanel>
+    </ScrollViewer>
 </Window>

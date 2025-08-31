@@ -1,8 +1,11 @@
-﻿using System.Reflection;
+﻿using System.Net.Http;
+using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Interop;
 using Velopack;
+using Velopack.Sources;
 
 namespace dockus.Settings;
 
@@ -23,15 +26,19 @@ public partial class SettingsWindow : Window
     public SettingsWindow()
     {
         InitializeComponent();
+        this.DataContext = dockus.Core.Models.AppSettings.Current;
         Loaded += OnLoaded;
         DisplayVersion();
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         var hwnd = new WindowInteropHelper(this).Handle;
         int useDark = 1;
         DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref useDark, sizeof(int));
+
+        ChangelogText.Text = "Loading changelog...";
+        ChangelogText.Text = await FetchChangelogAsync();
     }
 
     public void DisplayVersion()
@@ -113,4 +120,32 @@ public partial class SettingsWindow : Window
             UpdateButtonText.Text = "Check for Updates";
         }
     }
+
+    private async Task<string> FetchChangelogAsync()
+    {
+        try
+        {
+            using var http = new HttpClient();
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("dockus-client");
+
+            var json = await http.GetStringAsync("https://api.github.com/repos/NexusOnePlus/dockus/releases");
+            var releases = JsonSerializer.Deserialize<GitHubRelease[]>(json);
+
+            if (releases != null && releases.Length > 0)
+            {
+                return releases[0].body ?? "No changelog available.";
+            }
+
+            return "No releases found.";
+        }
+        catch (Exception ex)
+        {
+            return $"Error fetching changelog: {ex.Message}";
+        }
+    }
+    public class GitHubRelease
+    {
+        public string? body { get; set; }
+    }
+
 }
