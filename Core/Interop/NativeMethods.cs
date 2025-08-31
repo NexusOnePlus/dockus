@@ -243,6 +243,15 @@ internal static class NativeMethods
         void GetUInt32(); void GetUInt64(); void GetBool();
     }
 
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern int SHCreateItemFromParsingName(
+    [MarshalAs(UnmanagedType.LPWStr)] string pszPath,
+    IntPtr pbc,
+    ref Guid riid,
+    [MarshalAs(UnmanagedType.Interface)] out object ppv
+)   ;
+
+
     [ComImport, Guid("bcc18b79-ba16-442f-80c4-8a59c30c463b"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     internal interface IShellItemImageFactory
     {

@@ -1,6 +1,7 @@
 ﻿using dockus.Core.Interop;
 using dockus.Core.Models;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -214,18 +215,53 @@ public class WindowService
         return null;
     }
 
-    private BitmapSource? GetIconFromPath(string path)
+    private BitmapSource? GetIconFromPath(string path, int size = 256)
     {
-        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
+        if (string.IsNullOrEmpty(path) || !File.Exists(path))
+            return null;
+
+        IntPtr hBitmap = IntPtr.Zero;
         try
         {
-            if (NativeMethods.ExtractIconEx(path, 0, out IntPtr hLarge, out _, 1) > 0 && hLarge != IntPtr.Zero)
+            Guid shellItemGuid = new Guid("43826d1e-e718-42ee-bc55-a1e261c37bfe");
+            Guid iid = typeof(NativeMethods.IShellItem2).GUID;
+            NativeMethods.SHCreateItemFromParsingName(path, IntPtr.Zero, ref iid, out var shellItem);
+
+            if (shellItem is NativeMethods.IShellItemImageFactory imageFactory)
             {
-                try { return Imaging.CreateBitmapSourceFromHIcon(hLarge, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions()); }
-                finally { NativeMethods.DestroyIcon(hLarge); }
+                var sz = new NativeMethods.SIZE { cx = size, cy = size };
+                if (imageFactory.GetImage(sz, NativeMethods.SIIGBF.ICONONLY, out hBitmap) == 0 && hBitmap != IntPtr.Zero)
+                {
+                    var bitmapSource = Imaging.CreateBitmapSourceFromHBitmap(
+                        hBitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+                    bitmapSource.Freeze();
+                    return bitmapSource;
+                }
             }
         }
-        catch { /* Ignore */ }
+        catch
+        {
+            using (var icon = Icon.ExtractAssociatedIcon(path))
+            {
+                if (icon != null)
+                {
+                    using (var bmp = icon.ToBitmap())
+                    {
+                        if (bmp != null)
+                        {
+                            return Imaging.CreateBitmapSourceFromHBitmap(
+                                bmp.GetHbitmap(), IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+                        }
+                    }
+                }
+            }
+        }
+        finally
+        {
+            if (hBitmap != IntPtr.Zero)
+                NativeMethods.DeleteObject(hBitmap);
+        }
+
         return null;
     }
 

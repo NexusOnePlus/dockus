@@ -6,6 +6,8 @@ namespace dockus.Core.Interop;
 /// <summary>
 /// Provides methods to activate UWP applications.
 /// </summary>
+/// 
+
 [ComImport]
 [Guid("2e941141-7f97-4756-ba1d-9decde894a3d")]
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
