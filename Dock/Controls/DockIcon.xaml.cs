@@ -22,4 +22,15 @@ public partial class DockIcon : UserControl
         var mainWindow = Window.GetWindow(this) as MainWindow;
         mainWindow?.IconBlock_MouseRightButtonDown(this, e);
     }
+
+    private void IconBlock_MouseEnter(object sender, MouseEventArgs e)
+    {
+        VisualStateManager.GoToState(this, "MouseOver", true);
+    }
+
+    private void IconBlock_MouseLeave(object sender, MouseEventArgs e)
+    {
+        VisualStateManager.GoToState(this, "Normal", true);
+    }
+
 }

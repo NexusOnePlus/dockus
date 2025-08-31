@@ -11,50 +11,38 @@
             <RowDefinition Height="62"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="MouseStates">
+                <VisualState x:Name="Normal">
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="IconBlock" Storyboard.TargetProperty="Width" To="52" Duration="0:0:0.2"/>
+                        <DoubleAnimation Storyboard.TargetName="IconBlock" Storyboard.TargetProperty="Height" To="52" Duration="0:0:0.2"/>
+                        <DoubleAnimation Storyboard.TargetName="IconImage" Storyboard.TargetProperty="Width" To="36" Duration="0:0:0.2"/>
+                        <DoubleAnimation Storyboard.TargetName="IconImage" Storyboard.TargetProperty="Height" To="36" Duration="0:0:0.2"/>
+                    </Storyboard>
+                </VisualState>
+                <VisualState x:Name="MouseOver">
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="IconBlock" Storyboard.TargetProperty="Width" To="60" Duration="0:0:0.2"/>
+                        <DoubleAnimation Storyboard.TargetName="IconBlock" Storyboard.TargetProperty="Height" To="60" Duration="0:0:0.2"/>
+                        <DoubleAnimation Storyboard.TargetName="IconImage" Storyboard.TargetProperty="Width" To="44" Duration="0:0:0.2"/>
+                        <DoubleAnimation Storyboard.TargetName="IconImage" Storyboard.TargetProperty="Height" To="44" Duration="0:0:0.2"/>
+                    </Storyboard>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
         <Border
             x:Name="IconBlock"
             MouseRightButtonUp="IconBlock_MouseRightButtonUp"
             MouseLeftButtonUp="Icon_MouseLeftButtonUp" 
             VerticalAlignment="Center" 
             Width="52" 
-            Height="52" 
+            Height="52"
+            MouseEnter="IconBlock_MouseEnter"
+            MouseLeave="IconBlock_MouseLeave"
             Background="#AA292929" 
             CornerRadius="10" 
             Margin="3,0">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Style.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Trigger.EnterActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetProperty="Width" To="60" Duration="0:0:0.3" />
-                                        <DoubleAnimation Storyboard.TargetProperty="Height" To="60" Duration="0:0:0.3" />
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </Trigger.EnterActions>
-                            <Trigger.ExitActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetProperty="Width" To="52" Duration="0:0:0.3">
-                                            <DoubleAnimation.EasingFunction>
-                                                <CircleEase/>
-                                            </DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
-                                        <DoubleAnimation Storyboard.TargetProperty="Height" To="52" Duration="0:0:0.3">
-                                            <DoubleAnimation.EasingFunction>
-                                                <CircleEase/>
-                                            </DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </Trigger.ExitActions>
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-
             <Image 
                 x:Name="IconImage"
                 Width="36" 
@@ -63,30 +51,6 @@
                 Cursor="Hand"
                 VerticalAlignment="Center" 
                 HorizontalAlignment="Center">
-                <Image.Style>
-                    <Style TargetType="Image">
-                        <Style.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Trigger.EnterActions>
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetProperty="Width" To="44" Duration="0:0:0.3"/>
-                                            <DoubleAnimation Storyboard.TargetProperty="Height" To="44" Duration="0:0:0.3"/>
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </Trigger.EnterActions>
-                                <Trigger.ExitActions>
-                                    <BeginStoryboard>
-                                        <Storyboard>
-                                            <DoubleAnimation Storyboard.TargetProperty="Width" To="36" Duration="0:0:0.3"/>
-                                            <DoubleAnimation Storyboard.TargetProperty="Height" To="36" Duration="0:0:0.3"/>
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </Trigger.ExitActions>
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </Image.Style>
                 <Image.ToolTip>
                     <ToolTip Content="{Binding Title}" />
                 </Image.ToolTip>
