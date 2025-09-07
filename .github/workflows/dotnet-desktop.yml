@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       base_version:
-        description: 'Base Version'
+        description: 'Base Version (ej: 1.0)'
         required: true
         default: '1.0'
       release_title:
@@ -37,6 +37,23 @@ jobs:
       with:
         dotnet-version: 9.0.x
 
+    - name: Get next version
+      id: version
+      run: |
+        base="${{ github.event.inputs.base_version }}"
+        last_tag=$(git tag --list "v${base}.*" | sort -V | tail -n 1)
+        echo "Último tag encontrado: $last_tag"
+        if [ -z "$last_tag" ]; then
+          next_version="${base}.1"
+        else
+          patch=$(echo $last_tag | awk -F. '{print $NF}')
+          next_patch=$((patch + 1))
+          next_version="${base}.${next_patch}"
+        fi
+        echo "Versión calculada: $next_version"
+        echo "version=$next_version" >> $GITHUB_OUTPUT
+      shell: bash
+
     - name: Publish
       run: |
         dotnet publish dockus.csproj `
@@ -55,7 +72,7 @@ jobs:
       run: |
         vpk pack \
           -u dockus \
-          -v ${{ github.event.inputs.base_version }}.${{ github.run_number }} \
+          -v ${{ steps.version.outputs.version }} \
           -p publish \
           -e dockus.exe
       shell: bash
@@ -63,8 +80,11 @@ jobs:
     - name: Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v${{ github.event.inputs.base_version }}.${{ github.run_number }}
-        name: ${{ github.event.inputs.release_title != '' && github.event.inputs.release_title || format('Release v{0}.{1}', github.event.inputs.base_version, github.run_number) }}
+        tag_name: v${{ steps.version.outputs.version }}
+        name: >-
+          ${{ github.event.inputs.release_title != '' 
+            && format('v{1} {0}', github.event.inputs.release_title, steps.version.outputs.version) 
+            || format('Release v{0}', steps.version.outputs.version) }}
         body: |
           ${{ github.event.inputs.release_notes }}
         files: Releases/*
