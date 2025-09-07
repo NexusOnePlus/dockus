@@ -235,12 +235,14 @@ public class WindowService
                     var bitmapSource = Imaging.CreateBitmapSourceFromHBitmap(
                         hBitmap, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
                     bitmapSource.Freeze();
+                   // System.Diagnostics.Debug.WriteLine($"Éxito con IShellItemImageFactory para: {path}");
                     return bitmapSource;
                 }
             }
         }
         catch
         {
+          //  System.Diagnostics.Debug.WriteLine($"Error, cayendo en el CATCH con Icon.ExtractAssociatedIcon para: {path}");
             using (var icon = Icon.ExtractAssociatedIcon(path))
             {
                 if (icon != null)

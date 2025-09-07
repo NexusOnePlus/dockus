@@ -50,7 +50,10 @@
                 Source="{Binding Icon}" 
                 Cursor="Hand"
                 VerticalAlignment="Center" 
-                HorizontalAlignment="Center">
+                HorizontalAlignment="Center"
+                SnapsToDevicePixels="True"
+                RenderOptions.BitmapScalingMode="HighQuality"
+                >
                 <Image.ToolTip>
                     <ToolTip Content="{Binding Title}" />
                 </Image.ToolTip>
